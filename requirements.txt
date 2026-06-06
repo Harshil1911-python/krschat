@@ -29,4 +29,3 @@ qrcode==8.0
 user-agents==2.2.0
 phonenumbers==8.13.47
 markdown==3.7
-eventlet==0.35.2

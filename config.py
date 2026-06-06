@@ -111,7 +111,7 @@ class ProductionConfig(Config):
     REMEMBER_COOKIE_HTTPONLY = True
     PREFERRED_URL_SCHEME = 'https'
     WTF_CSRF_ENABLED = True
-    SOCKETIO_ASYNC_MODE = 'gevent'
+    SOCKETIO_ASYNC_MODE = 'threading'
 
 
 class TestingConfig(Config):
