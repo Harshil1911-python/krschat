@@ -1,0 +1,139 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Pages / {{ 'Edit' if page else 'New Page' }}{% endblock %}
+
+{% block head %}
+<!-- Simple WYSIWYG -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css" rel="stylesheet" />
+<style>
+.ql-toolbar { background:var(--surface-2)!important; border-color:var(--border)!important; border-radius:var(--radius) var(--radius) 0 0; }
+.ql-container { background:var(--surface)!important; border-color:var(--border)!important; border-radius:0 0 var(--radius) var(--radius); min-height:350px; font-family:var(--font-body); font-size:0.95rem; color:var(--text)!important; }
+.ql-editor { min-height:350px; color:var(--text); }
+.ql-stroke { stroke:var(--text-2)!important; }
+.ql-fill { fill:var(--text-2)!important; }
+.ql-picker-label { color:var(--text-2)!important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <div>
+    <div class="admin-page-title">{{ 'Edit Page' if page else 'New Page' }}</div>
+    <div class="admin-page-sub">{% if page %}Editing: {{ page.title }}{% else %}Create a new CMS page{% endif %}</div>
+  </div>
+  <div style="display:flex; gap:10px;">
+    {% if page %}<a href="/p/{{ page.slug }}" target="_blank" class="btn btn-secondary btn-sm">Preview ↗</a>{% endif %}
+    <a href="/admin/pages" class="btn btn-ghost btn-sm">← Back</a>
+  </div>
+</div>
+
+<form method="POST" id="pageForm">
+  <div class="grid-2" style="gap:20px; align-items:start;">
+    <!-- Main Content -->
+    <div style="grid-column:1/-1;" class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">Page Content</div></div>
+      <div class="admin-card-body">
+        <div class="form-group">
+          <label class="form-label">Page Title *</label>
+          <input type="text" name="title" class="form-control" value="{{ page.title if page else '' }}" required placeholder="Page title..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label">URL Slug *</label>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--text-3); font-size:0.9rem;">/p/</span>
+            <input type="text" name="slug" id="slugInput" class="form-control" value="{{ page.slug if page else '' }}" {% if page and page.is_system %}readonly{% endif %} required placeholder="page-url-slug" />
+          </div>
+          {% if page and page.is_system %}<div class="form-hint">System page slug cannot be changed</div>{% endif %}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Content</label>
+          <div id="quillEditor"></div>
+          <textarea name="content" id="contentTextarea" style="display:none;">{{ page.content if page else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEO -->
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">🔍 SEO Settings</div></div>
+      <div class="admin-card-body">
+        <div class="form-group">
+          <label class="form-label">Meta Title</label>
+          <input type="text" name="meta_title" class="form-control" value="{{ page.meta_title if page else '' }}" placeholder="SEO page title" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Meta Description</label>
+          <textarea name="meta_description" class="form-control" rows="3" placeholder="SEO description (150-160 chars)">{{ page.meta_description if page else '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Meta Keywords</label>
+          <input type="text" name="meta_keywords" class="form-control" value="{{ page.meta_keywords if page else '' }}" placeholder="keyword1, keyword2" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Publish -->
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">📤 Publish</div></div>
+      <div class="admin-card-body">
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" name="is_published" {% if not page or page.is_published %}checked{% endif %} style="accent-color:var(--primary);width:18px;height:18px;" />
+            <span>Published (visible to visitors)</span>
+          </label>
+        </div>
+        <div style="margin-top:16px; display:flex; gap:10px;">
+          <button type="submit" class="btn btn-primary w-full">
+            💾 {{ 'Update Page' if page else 'Create Page' }}
+          </button>
+        </div>
+        {% if page and not page.is_system %}
+        <div style="margin-top:10px;">
+          <form method="POST" action="/admin/pages/{{ page.id }}/delete" onsubmit="return confirm('Delete this page permanently?')">
+            <button type="submit" class="btn btn-danger w-full btn-sm">🗑️ Delete Page</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
+<script>
+// Auto-generate slug from title
+document.querySelector('[name="title"]')?.addEventListener('input', function() {
+  const slugInput = document.getElementById('slugInput');
+  if (slugInput && !slugInput.readOnly && !slugInput.value) {
+    slugInput.value = this.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+});
+
+// Init Quill
+const quill = new Quill('#quillEditor', {
+  theme: 'snow',
+  modules: {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      ['link', 'blockquote', 'code-block'],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      ['image', 'video'],
+      ['clean']
+    ]
+  },
+  placeholder: 'Write your page content here...'
+});
+
+// Load existing content
+const existing = document.getElementById('contentTextarea').value;
+if (existing) quill.root.innerHTML = existing;
+
+// On form submit, copy quill content to textarea
+document.getElementById('pageForm').addEventListener('submit', function() {
+  document.getElementById('contentTextarea').value = quill.root.innerHTML;
+});
+</script>
+{% endblock %}

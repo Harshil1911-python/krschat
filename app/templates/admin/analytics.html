@@ -1,0 +1,79 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Analytics{% endblock %}
+
+{% block content %}
+<div class="admin-page-title">Analytics</div>
+<div class="admin-page-sub">Traffic, device, and engagement insights for the last 30 days</div>
+
+<!-- Daily Views Chart -->
+<div class="admin-card" style="margin-bottom:20px;">
+  <div class="admin-card-header">
+    <div class="admin-card-title">📈 Daily Page Views (Last 30 Days)</div>
+  </div>
+  <div class="admin-card-body">
+    {% if daily_views %}
+    <div class="chart-bar" id="viewsChart">
+      {% set max_views = daily_views | map(attribute=1) | max if daily_views else 1 %}
+      {% for date, count in daily_views %}
+      {% set height = ((count / max_views) * 100) | int %}
+      <div class="chart-bar-item"
+           style="height:{{ [height, 4] | max }}%;"
+           data-label="{{ date.strftime('%m/%d') if date else '' }}"
+           title="{{ date }} — {{ count }} views">
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:40px;color:var(--text-3);">No analytics data yet. Traffic will appear here once visitors arrive.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Device Stats -->
+<div class="grid-2" style="gap:20px;">
+  <div class="admin-card">
+    <div class="admin-card-header"><div class="admin-card-title">📱 Device Breakdown</div></div>
+    <div class="admin-card-body">
+      {% if device_stats %}
+      {% set total_devices = device_stats | map(attribute=1) | sum %}
+      {% for device, count in device_stats %}
+      {% set pct = ((count / total_devices) * 100) | int if total_devices > 0 else 0 %}
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.88rem;">
+          <span>{{ device | capitalize or 'Unknown' }}</span>
+          <span style="color:var(--text-3);">{{ count }} ({{ pct }}%)</span>
+        </div>
+        <div class="loading-bar">
+          <div class="loading-bar-fill" style="width:{{ pct }}%;"></div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div style="text-align:center;padding:20px;color:var(--text-3);">No device data yet</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <div class="admin-card-header"><div class="admin-card-title">📊 Summary</div></div>
+    <div class="admin-card-body">
+      {% set total_views = daily_views | map(attribute=1) | sum if daily_views else 0 %}
+      {% set avg_views = (total_views / 30) | int %}
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border);">
+          <div class="stat-label">Total Views (30d)</div>
+          <div class="stat-value text-gradient">{{ total_views }}</div>
+        </div>
+        <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border);">
+          <div class="stat-label">Average Daily Views</div>
+          <div class="stat-value text-gradient">{{ avg_views }}</div>
+        </div>
+        <div style="padding:16px;background:var(--surface-2);border-radius:var(--radius);border:1px solid var(--border);">
+          <div class="stat-label">Total Devices Tracked</div>
+          <div class="stat-value text-gradient">{{ device_stats | map(attribute=1) | sum if device_stats else 0 }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

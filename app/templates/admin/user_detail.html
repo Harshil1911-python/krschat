@@ -1,0 +1,168 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Users / {{ user.username }}{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">User: {{ user.display_name }}</div>
+    <div class="admin-page-sub">@{{ user.username }} · Joined {{ user.created_at.strftime('%B %d, %Y') }}</div>
+  </div>
+  <a href="/admin/users" class="btn btn-ghost btn-sm">← Back to Users</a>
+</div>
+
+<div class="grid-2" style="gap:20px; align-items:start;">
+  <!-- Profile Card -->
+  <div class="admin-card">
+    <div class="admin-card-header"><div class="admin-card-title">👤 Profile</div></div>
+    <div class="admin-card-body">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;">
+        <div class="avatar-wrap">
+          <img src="{{ user.avatar_url or '/static/images/default-avatar.png' }}" class="avatar avatar-xl" />
+          {% if user.is_online %}<div class="online-dot"></div>{% endif %}
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-size:1.2rem;font-weight:700;">{{ user.display_name }}</div>
+          <div style="color:var(--text-3);font-size:0.88rem;">@{{ user.username }}</div>
+          <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+            {% if user.is_verified %}<span class="badge badge-primary">✓ Verified</span>{% endif %}
+            {% if user.is_banned %}<span class="badge badge-danger">Banned</span>{% endif %}
+            {% if user.is_suspended %}<span class="badge badge-warning">Suspended</span>{% endif %}
+            {% if user.is_online %}<span class="badge badge-success">Online</span>{% endif %}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;font-size:0.88rem;">
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-3);">Email</span>
+          <span>{{ user.email or '—' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-3);">Phone</span>
+          <span>{{ user.phone or '—' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-3);">Last Seen</span>
+          <span>{{ user.last_seen.strftime('%b %d, %Y %H:%M') if user.last_seen else '—' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-3);">Login Attempts</span>
+          <span {% if user.login_attempts > 0 %}style="color:var(--warning);"{% endif %}>{{ user.login_attempts }}</span>
+        </div>
+        <div style="padding:8px 0;">
+          <span style="color:var(--text-3);">Bio</span>
+          <div style="margin-top:4px;">{{ user.bio or '—' }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">⚡ Quick Actions</div></div>
+      <div class="admin-card-body" style="display:flex;flex-direction:column;gap:8px;">
+        <!-- Verify -->
+        <form method="POST" action="/admin/users/{{ user.id }}/verify">
+          <button type="submit" class="btn {% if user.is_verified %}btn-secondary{% else %}btn-success{% endif %} w-full">
+            {% if user.is_verified %}✕ Remove Verification{% else %}✓ Verify User{% endif %}
+          </button>
+        </form>
+        <!-- Ban/Unban -->
+        {% if user.is_banned %}
+        <form method="POST" action="/admin/users/{{ user.id }}/unban">
+          <button type="submit" class="btn btn-success w-full">✅ Unban User</button>
+        </form>
+        <div style="font-size:0.82rem;color:var(--danger);padding:8px;background:rgba(239,68,68,0.1);border-radius:6px;">
+          Ban reason: {{ user.ban_reason or 'Not specified' }}
+        </div>
+        {% else %}
+        <button class="btn btn-danger w-full" onclick="showBanForm()">🚫 Ban User</button>
+        <div id="banForm" style="display:none;">
+          <form method="POST" action="/admin/users/{{ user.id }}/ban">
+            <div class="form-group">
+              <label class="form-label">Ban Reason</label>
+              <textarea name="reason" class="form-control" rows="2" placeholder="Reason for banning..."></textarea>
+            </div>
+            <button type="submit" class="btn btn-danger w-full">Confirm Ban</button>
+          </form>
+        </div>
+        {% endif %}
+        <!-- Suspend -->
+        <button class="btn btn-warning w-full" onclick="showSuspendForm()" style="background:var(--warning);color:#1a1a00;border:none;">
+          ⏸️ Suspend User
+        </button>
+        <div id="suspendForm" style="display:none;">
+          <form method="POST" action="/admin/users/{{ user.id }}/suspend">
+            <div class="form-group">
+              <label class="form-label">Suspend for (days)</label>
+              <input type="number" name="days" class="form-control" value="7" min="1" max="365" />
+            </div>
+            <button type="submit" class="btn w-full" style="background:var(--warning);color:#1a1a00;">Confirm Suspend</button>
+          </form>
+        </div>
+        <!-- Delete -->
+        {% if admin.role == 'superadmin' %}
+        <form method="POST" action="/admin/users/{{ user.id }}/delete" onsubmit="return confirm('PERMANENTLY delete {{ user.username }}? This cannot be undone!')">
+          <button type="submit" class="btn btn-danger w-full" style="opacity:0.7;">🗑️ Delete Account</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Active Sessions -->
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">🖥️ Active Sessions</div></div>
+      <div class="admin-card-body" style="padding:0;">
+        {% for sess in sessions %}
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);">
+          <div style="font-size:1.2rem;">{{ '📱' if sess.device_type == 'mobile' else '🖥️' }}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.85rem;font-weight:600;">{{ sess.browser or 'Unknown' }}</div>
+            <div style="font-size:0.75rem;color:var(--text-3);">{{ sess.os or '' }} · {{ sess.ip_address or '—' }}</div>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-3);">{{ sess.created_at.strftime('%b %d') }}</div>
+        </div>
+        {% else %}
+        <div style="padding:16px;text-align:center;color:var(--text-3);font-size:0.88rem;">No sessions</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports -->
+  <div class="admin-card" style="grid-column:1/-1;">
+    <div class="admin-card-header"><div class="admin-card-title">⚠️ Reports ({{ reports | length }})</div></div>
+    <div class="admin-card-body" style="padding:0;">
+      <table class="admin-table">
+        <thead><tr><th>Reporter</th><th>Reason</th><th>Description</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for r in reports %}
+          <tr>
+            <td style="font-size:0.85rem;">{{ r.reporter.display_name if r.reporter else '—' }}</td>
+            <td><span class="badge badge-warning">{{ r.reason }}</span></td>
+            <td style="font-size:0.82rem;color:var(--text-3);">{{ r.description or '—' }}</td>
+            <td><span class="badge {% if r.status == 'resolved' %}badge-success{% elif r.status == 'pending' %}badge-warning{% else %}badge-danger{% endif %}">{{ r.status }}</span></td>
+            <td style="font-size:0.8rem;color:var(--text-3);">{{ r.created_at.strftime('%b %d') }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-3);">No reports</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showBanForm() {
+  const f = document.getElementById('banForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+function showSuspendForm() {
+  const f = document.getElementById('suspendForm');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Landing Page Editor{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">Landing Page Editor</div>
+    <div class="admin-page-sub">Customize your public landing page content without touching code</div>
+  </div>
+  <a href="/" target="_blank" class="btn btn-secondary btn-sm">Preview Site ↗</a>
+</div>
+
+<form method="POST" action="/admin/landing/update" id="landingForm">
+  <div class="grid-2" style="gap:20px;">
+    <!-- Hero Section -->
+    <div class="admin-card" style="grid-column:1/-1;">
+      <div class="admin-card-header"><div class="admin-card-title">🦸 Hero Section</div></div>
+      <div class="admin-card-body">
+        <div class="grid-2" style="gap:16px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Hero Title</label>
+            <input type="text" name="hero_title" class="form-control" value="{{ settings.get('hero_title','Connect Without Limits') }}" placeholder="Connect Without Limits" />
+            <div class="form-hint">Main headline on the landing page</div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Hero Button Text</label>
+            <input type="text" name="hero_button_text" class="form-control" value="{{ settings.get('hero_button_text','Start Messaging Free') }}" placeholder="Start Messaging Free" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;grid-column:1/-1;">
+            <label class="form-label">Hero Subtitle</label>
+            <textarea name="hero_subtitle" class="form-control" rows="2" placeholder="Subtitle text...">{{ settings.get('hero_subtitle','Secure, fast, and beautiful messaging for everyone.') }}</textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Features -->
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">⚡ Features Section</div></div>
+      <div class="admin-card-body">
+        <div class="form-group">
+          <label class="form-label">Features Title</label>
+          <input type="text" name="features_title" class="form-control" value="{{ settings.get('features_title','Everything You Need') }}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Features Subtitle</label>
+          <textarea name="features_subtitle" class="form-control" rows="2">{{ settings.get('features_subtitle','') }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- App Info -->
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">📱 App Info</div></div>
+      <div class="admin-card-body">
+        <div class="form-group">
+          <label class="form-label">App Tagline</label>
+          <input type="text" name="app_tagline" class="form-control" value="{{ settings.get('app_tagline','The smarter way to communicate') }}" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Download Section Text</label>
+          <textarea name="download_text" class="form-control" rows="2">{{ settings.get('download_text','Install as a PWA — no app store needed.') }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="admin-card" style="grid-column:1/-1;">
+      <div class="admin-card-header"><div class="admin-card-title">🦶 Footer</div></div>
+      <div class="admin-card-body">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Footer Copyright Text</label>
+          <input type="text" name="footer_text" class="form-control" value="{{ settings.get('footer_text','© 2024 Khandhars Chat. All rights reserved.') }}" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;display:flex;gap:10px;">
+    <button type="submit" class="btn btn-primary">💾 Save Landing Page</button>
+    <a href="/" target="_blank" class="btn btn-secondary">Preview Changes ↗</a>
+  </div>
+</form>
+{% endblock %}

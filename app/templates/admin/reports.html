@@ -1,0 +1,79 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}User Reports{% endblock %}
+
+{% block content %}
+<div class="admin-page-title">User Reports</div>
+<div class="admin-page-sub">Review and action reports submitted by users</div>
+
+<div style="display:flex;gap:8px;margin-bottom:20px;">
+  {% for s in ['pending', 'reviewed', 'resolved', 'dismissed'] %}
+  <a href="?status={{ s }}" class="btn {% if status == s %}btn-primary{% else %}btn-secondary{% endif %} btn-sm">
+    {{ s | capitalize }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="admin-card">
+  <div class="admin-card-body" style="padding:0;overflow-x:auto;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Reporter</th><th>Reported User</th><th>Reason</th><th>Description</th><th>Date</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for report in reports.items %}
+        <tr>
+          <td style="font-size:0.85rem;">{{ report.reporter.display_name if report.reporter else 'Unknown' }}</td>
+          <td>
+            <a href="/admin/users/{{ report.reported_id }}" style="color:var(--primary-light);font-weight:600;font-size:0.88rem;">
+              {{ report.reported.display_name if report.reported else 'Unknown' }}
+            </a>
+          </td>
+          <td><span class="badge badge-warning">{{ report.reason }}</span></td>
+          <td style="font-size:0.82rem;color:var(--text-3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            {{ report.description or '—' }}
+          </td>
+          <td style="font-size:0.8rem;color:var(--text-3);">{{ report.created_at.strftime('%b %d') }}</td>
+          <td>
+            <div class="actions">
+              {% if report.status == 'pending' %}
+              <button class="btn btn-success btn-sm" onclick="resolveReport('{{ report.id }}','resolved')">Resolve</button>
+              <button class="btn btn-secondary btn-sm" onclick="resolveReport('{{ report.id }}','dismissed')">Dismiss</button>
+              <a href="/admin/users/{{ report.reported_id }}" class="btn btn-danger btn-sm">View & Ban</a>
+              {% else %}
+              <span class="badge {% if report.status == 'resolved' %}badge-success{% else %}badge-danger{% endif %}">{{ report.status }}</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-3);">No {{ status }} reports ✓</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if reports.pages > 1 %}
+<div class="pagination" style="margin-top:16px;">
+  {% if reports.has_prev %}<a href="?status={{ status }}&page={{ reports.prev_num }}" class="page-btn">←</a>{% endif %}
+  {% for p in reports.iter_pages() %}
+    {% if p %}<a href="?status={{ status }}&page={{ p }}" class="page-btn {% if p == reports.page %}active{% endif %}">{{ p }}</a>
+    {% else %}<span class="page-btn">…</span>{% endif %}
+  {% endfor %}
+  {% if reports.has_next %}<a href="?status={{ status }}&page={{ reports.next_num }}" class="page-btn">→</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function resolveReport(id, action) {
+  const res = await fetch(`/admin/reports/${id}/resolve`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ action })
+  });
+  const json = await res.json();
+  if (json.success) { showToast('Report updated', 'success'); setTimeout(() => location.reload(), 600); }
+}
+</script>
+{% endblock %}

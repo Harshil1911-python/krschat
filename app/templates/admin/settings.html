@@ -1,0 +1,330 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Settings{% endblock %}
+
+{% block content %}
+<div class="admin-page-title">Site Settings</div>
+<div class="admin-page-sub">Configure all aspects of your platform — no code required.</div>
+
+<!-- Settings Tabs -->
+<div style="display:flex; gap:4px; margin-bottom:24px; flex-wrap:wrap;">
+  {% for tab in ['General', 'Contact', 'SMTP', 'Theme', 'Branding', 'Social', 'Analytics', 'Security'] %}
+  <button class="btn btn-secondary btn-sm settings-tab" data-target="tab{{ tab }}" onclick="switchSettingsTab('tab{{ tab }}')">{{ tab }}</button>
+  {% endfor %}
+</div>
+
+<form method="POST" action="/admin/settings/update" id="settingsForm">
+
+  <!-- General -->
+  <div class="settings-panel" id="tabGeneral">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">⚙️ General Settings</div></div>
+      <div class="admin-card-body">
+        <div class="settings-grid">
+          {% for s in categories.get('general', []) %}
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">{{ s.label or s.key }}</label>
+            {% if s.value_type == 'bool' %}
+            <select name="{{ s.key }}" class="form-control">
+              <option value="true" {% if s.value in ('true','True','1') %}selected{% endif %}>Enabled</option>
+              <option value="false" {% if s.value not in ('true','True','1') %}selected{% endif %}>Disabled</option>
+            </select>
+            {% else %}
+            <input type="text" name="{{ s.key }}" value="{{ s.value or '' }}" class="form-control" />
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:16px;">
+          <button type="submit" class="btn btn-primary">Save General Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contact -->
+  <div class="settings-panel hidden" id="tabContact">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">📞 Contact & Support Details</div></div>
+      <div class="admin-card-body">
+        <div style="background:var(--primary-glow);border:1px solid var(--primary);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:0.88rem;color:var(--primary-light);">
+          💡 These details appear on your landing page, footer, and FAQ section. Update them here without touching any code.
+        </div>
+        <div class="settings-grid">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">🆘 Helpline Number</label>
+            <input type="text" name="helpline_number" value="{{ categories.get('contact', []) | selectattr('key', 'equalto', 'helpline_number') | map(attribute='value') | first | default('') }}" class="form-control" placeholder="+1-800-555-0100" />
+            <div class="form-hint">Emergency/helpline phone number shown publicly</div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">📧 Support Email</label>
+            <input type="email" name="support_email" value="{{ categories.get('contact', []) | selectattr('key', 'equalto', 'support_email') | map(attribute='value') | first | default('') }}" class="form-control" placeholder="support@khandharschat.com" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">📱 Support Phone</label>
+            <input type="text" name="support_phone" value="{{ categories.get('contact', []) | selectattr('key', 'equalto', 'support_phone') | map(attribute='value') | first | default('') }}" class="form-control" placeholder="+1-800-000-0000" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">✉️ Contact Gmail</label>
+            <input type="email" name="contact_gmail" value="{{ categories.get('contact', []) | selectattr('key', 'equalto', 'contact_gmail') | map(attribute='value') | first | default('') }}" class="form-control" placeholder="hello@gmail.com" />
+            <div class="form-hint">Gmail address shown on contact page</div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">📍 Office Address</label>
+            <input type="text" name="contact_address" value="{{ categories.get('contact', []) | selectattr('key', 'equalto', 'contact_address') | map(attribute='value') | first | default('') }}" class="form-control" placeholder="123 Main St, City, Country" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">💬 WhatsApp Number</label>
+            <input type="text" name="contact_whatsapp" value="{{ categories.get('contact', []) | selectattr('key', 'equalto', 'contact_whatsapp') | map(attribute='value') | first | default('') }}" class="form-control" placeholder="+1-800-000-0000" />
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <button type="button" class="btn btn-primary" onclick="saveContactSettings()">Save Contact Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMTP -->
+  <div class="settings-panel hidden" id="tabSMTP">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">📨 SMTP / Email Settings</div></div>
+      <div class="admin-card-body">
+        <div style="background:rgba(245,158,11,0.1);border:1px solid var(--warning);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:0.88rem;color:var(--warning);">
+          ⚠️ SMTP credentials are stored securely. Use App Passwords for Gmail, not your main password.
+        </div>
+        <div class="settings-grid">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">SMTP Server</label>
+            <input type="text" name="smtp_server" value="{{ categories.get('smtp', []) | selectattr('key', 'equalto', 'smtp_server') | map(attribute='value') | first | default('smtp.gmail.com') }}" class="form-control" placeholder="smtp.gmail.com" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">SMTP Port</label>
+            <input type="number" name="smtp_port" value="{{ categories.get('smtp', []) | selectattr('key', 'equalto', 'smtp_port') | map(attribute='value') | first | default('587') }}" class="form-control" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">SMTP Username / Gmail</label>
+            <input type="email" name="smtp_username" value="{{ categories.get('smtp', []) | selectattr('key', 'equalto', 'smtp_username') | map(attribute='value') | first | default('') }}" class="form-control" placeholder="your@gmail.com" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">SMTP Password / App Password</label>
+            <input type="password" name="smtp_password" class="form-control" placeholder="Leave blank to keep current" autocomplete="new-password" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Default Sender Address</label>
+            <input type="email" name="mail_default_sender" value="{{ categories.get('smtp', []) | selectattr('key', 'equalto', 'mail_default_sender') | map(attribute='value') | first | default('') }}" class="form-control" placeholder="noreply@khandharschat.com" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Use TLS</label>
+            <select name="smtp_use_tls" class="form-control">
+              <option value="true">Yes (Recommended)</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:16px; display:flex; gap:10px;">
+          <button type="button" class="btn btn-primary" onclick="saveSMTPSettings()">Save SMTP Settings</button>
+          <button type="button" class="btn btn-secondary" onclick="testSMTP()">Send Test Email</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme -->
+  <div class="settings-panel hidden" id="tabTheme">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">🎨 Theme & Colors</div></div>
+      <div class="admin-card-body">
+        <div class="settings-grid">
+          {% for s in categories.get('theme', []) %}
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">{{ s.label or s.key }}</label>
+            {% if 'color' in s.key %}
+            <div class="color-input-wrap">
+              <input type="color" value="{{ s.value or '#7C3AED' }}" onchange="document.getElementById('text_{{ s.key }}').value=this.value;document.getElementById('preview_{{ s.key }}').style.background=this.value;" />
+              <input type="text" id="text_{{ s.key }}" name="{{ s.key }}" value="{{ s.value or '' }}" class="form-control" placeholder="#7C3AED" style="font-family:monospace;" />
+              <div id="preview_{{ s.key }}" style="width:36px;height:36px;border-radius:6px;background:{{ s.value or '#7C3AED' }};flex-shrink:0;border:1px solid var(--border);"></div>
+            </div>
+            {% else %}
+            <input type="text" name="{{ s.key }}" value="{{ s.value or '' }}" class="form-control" />
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:16px;">
+          <button type="button" class="btn btn-primary" onclick="saveThemeSettings()">Save Theme</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Branding -->
+  <div class="settings-panel hidden" id="tabBranding">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">🏷️ Branding</div></div>
+      <div class="admin-card-body">
+        <div class="settings-grid">
+          {% for s in categories.get('branding', []) %}
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">{{ s.label or s.key }}</label>
+            <input type="text" name="{{ s.key }}" value="{{ s.value or '' }}" class="form-control" placeholder="https://..." />
+            {% if s.value %}<img src="{{ s.value }}" style="height:40px;margin-top:6px;border-radius:4px;" />{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:16px;">
+          <button type="submit" class="btn btn-primary">Save Branding</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Social -->
+  <div class="settings-panel hidden" id="tabSocial">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">🌐 Social Media Links</div></div>
+      <div class="admin-card-body">
+        <div class="settings-grid">
+          {% for s in categories.get('social', []) %}
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">{{ s.label or s.key }}</label>
+            <input type="url" name="{{ s.key }}" value="{{ s.value or '' }}" class="form-control" placeholder="https://..." />
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:16px;">
+          <button type="submit" class="btn btn-primary">Save Social Links</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics -->
+  <div class="settings-panel hidden" id="tabAnalytics">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">📊 Analytics Settings</div></div>
+      <div class="admin-card-body">
+        <div class="settings-grid">
+          {% for s in categories.get('analytics', []) %}
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">{{ s.label or s.key }}</label>
+            <input type="text" name="{{ s.key }}" value="{{ s.value or '' }}" class="form-control" />
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:16px;">
+          <button type="submit" class="btn btn-primary">Save Analytics</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Security -->
+  <div class="settings-panel hidden" id="tabSecurity">
+    <div class="admin-card">
+      <div class="admin-card-header"><div class="admin-card-title">🔒 Security Settings</div></div>
+      <div class="admin-card-body">
+        <div style="background:rgba(239,68,68,0.1);border:1px solid var(--danger);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;font-size:0.88rem;color:var(--danger);">
+          ⚠️ Changing security settings affects all users. Be careful.
+        </div>
+        <div class="settings-grid">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Maintenance Mode</label>
+            <select name="maintenance_mode" class="form-control">
+              <option value="false">Off</option>
+              <option value="true">On (Site shows maintenance page)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Allow New Registrations</label>
+            <select name="registration_open" class="form-control">
+              <option value="true">Open</option>
+              <option value="false">Closed</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <button type="submit" class="btn btn-primary">Save Security Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function switchSettingsTab(target) {
+  document.querySelectorAll('.settings-panel').forEach(p => p.classList.add('hidden'));
+  document.getElementById(target).classList.remove('hidden');
+  document.querySelectorAll('.settings-tab').forEach(t => {
+    t.classList.toggle('btn-primary', t.dataset.target === target);
+    t.classList.toggle('btn-secondary', t.dataset.target !== target);
+  });
+}
+
+// Activate first tab
+switchSettingsTab('tabGeneral');
+
+async function saveContactSettings() {
+  const data = {
+    helpline_number: document.querySelector('[name="helpline_number"]').value,
+    support_email: document.querySelector('[name="support_email"]').value,
+    support_phone: document.querySelector('[name="support_phone"]').value,
+    contact_gmail: document.querySelector('[name="contact_gmail"]').value,
+    contact_address: document.querySelector('[name="contact_address"]')?.value || '',
+    contact_whatsapp: document.querySelector('[name="contact_whatsapp"]')?.value || '',
+  };
+  const res = await fetch('/admin/settings/contact', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  showToast(json.success ? '✅ Contact settings saved!' : '❌ Error saving', json.success ? 'success' : 'error');
+}
+
+async function saveSMTPSettings() {
+  const data = {
+    smtp_server: document.querySelector('[name="smtp_server"]').value,
+    smtp_port: document.querySelector('[name="smtp_port"]').value,
+    smtp_username: document.querySelector('[name="smtp_username"]').value,
+    smtp_password: document.querySelector('[name="smtp_password"]').value,
+    mail_default_sender: document.querySelector('[name="mail_default_sender"]').value,
+    smtp_use_tls: document.querySelector('[name="smtp_use_tls"]').value,
+  };
+  const res = await fetch('/admin/settings/smtp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  showToast(json.success ? '✅ SMTP settings saved!' : '❌ Error saving', json.success ? 'success' : 'error');
+}
+
+async function saveThemeSettings() {
+  const inputs = document.querySelectorAll('#tabTheme input[name]');
+  const data = {};
+  inputs.forEach(i => { data[i.name] = i.value; });
+  const res = await fetch('/admin/settings/theme', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  showToast(json.success ? '✅ Theme saved!' : '❌ Error saving', json.success ? 'success' : 'error');
+}
+
+async function testSMTP() {
+  showToast('Sending test email...', 'info');
+  try {
+    const res = await fetch('/admin/settings/smtp/test', { method: 'POST' });
+    const json = await res.json();
+    showToast(json.success ? '✅ Test email sent!' : '❌ Failed: ' + (json.error || 'Unknown error'), json.success ? 'success' : 'error');
+  } catch {
+    showToast('❌ SMTP test failed', 'error');
+  }
+}
+</script>
+{% endblock %}

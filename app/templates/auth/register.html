@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Create Account - {{ site.app_name }}{% endblock %}
+{% block body %}
+<div class="auth-layout">
+  <div class="auth-card animate-slideUp" style="max-width:480px;">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">💬</div>
+      {{ site.app_name }}
+    </div>
+    <h2 class="auth-title">Create your account</h2>
+    <p class="auth-subtitle">Free forever. No credit card needed.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for category, message in messages %}
+    <div style="padding:10px 14px;background:{% if category=='error' %}rgba(239,68,68,0.1){% else %}rgba(16,185,129,0.1){% endif %};border:1px solid {% if category=='error' %}var(--danger){% else %}var(--success){% endif %};border-radius:var(--radius);margin-bottom:16px;font-size:0.88rem;color:{% if category=='error' %}var(--danger){% else %}var(--success){% endif %};">
+      {{ message }}
+    </div>
+    {% endfor %}{% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}" />
+      <div class="grid-2" style="gap:12px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Username *</label>
+          <input type="text" name="username" class="form-control" placeholder="john_doe" required minlength="3" maxlength="50" pattern="[a-zA-Z0-9._]+" />
+          <div class="form-hint">Letters, numbers, _ and . only</div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Display Name *</label>
+          <input type="text" name="display_name" class="form-control" placeholder="John Doe" required minlength="2" maxlength="100" />
+        </div>
+      </div>
+      <div class="form-group mt-3">
+        <label class="form-label">Phone Number</label>
+        <input type="tel" name="phone" class="form-control" placeholder="+1 234 567 8900" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <input type="email" name="email" class="form-control" placeholder="john@example.com" />
+        <div class="form-hint">At least one of phone or email is required</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password *</label>
+        <div style="position:relative;">
+          <input type="password" name="password" id="passwordInput" class="form-control" placeholder="Min 8 characters" required minlength="8" oninput="checkPasswordStrength(this.value)" />
+          <button type="button" onclick="togglePassword('passwordInput','pwToggle1')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-3);cursor:pointer;" id="pwToggle1">👁️</button>
+        </div>
+        <div id="strengthBar" class="loading-bar mt-2"><div class="loading-bar-fill" id="strengthFill"></div></div>
+        <div id="strengthLabel" class="form-hint"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password *</label>
+        <div style="position:relative;">
+          <input type="password" name="confirm_password" id="confirmInput" class="form-control" placeholder="Repeat password" required />
+          <button type="button" onclick="togglePassword('confirmInput','pwToggle2')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-3);cursor:pointer;" id="pwToggle2">👁️</button>
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.85rem;color:var(--text-2);">
+          <input type="checkbox" required style="margin-top:2px;accent-color:var(--primary);">
+          I agree to the <a href="{{ url_for('landing.terms') }}" target="_blank" style="color:var(--primary-light);">Terms of Service</a> and <a href="{{ url_for('landing.privacy') }}" target="_blank" style="color:var(--primary-light);">Privacy Policy</a>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary w-full btn-lg">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+        Create Account
+      </button>
+    </form>
+    <p class="auth-footer">Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a></p>
+  </div>
+</div>
+<script>
+function togglePassword(inputId, btnId) {
+  const inp = document.getElementById(inputId);
+  const btn = document.getElementById(btnId);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
+}
+function checkPasswordStrength(pw) {
+  let score = 0;
+  if (pw.length >= 8) score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const fill = document.getElementById('strengthFill');
+  const label = document.getElementById('strengthLabel');
+  const levels = [
+    { pct: '20%', color: 'var(--danger)', text: 'Very Weak' },
+    { pct: '40%', color: 'var(--danger)', text: 'Weak' },
+    { pct: '60%', color: 'var(--warning)', text: 'Fair' },
+    { pct: '80%', color: 'var(--primary-light)', text: 'Strong' },
+    { pct: '100%', color: 'var(--success)', text: 'Very Strong ✓' },
+  ];
+  const lvl = levels[Math.max(0, score - 1)] || levels[0];
+  fill.style.width = lvl.pct;
+  fill.style.background = lvl.color;
+  label.textContent = pw ? lvl.text : '';
+  label.style.color = lvl.color;
+}
+</script>
+{% endblock %}

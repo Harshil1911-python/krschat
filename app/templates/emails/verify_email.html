@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>
+body{font-family:Arial,sans-serif;background:#0a0a0f;color:#f0f0f8;margin:0;padding:0;}
+.email-wrap{max-width:560px;margin:40px auto;background:#16161f;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;}
+.email-header{background:linear-gradient(135deg,#7C3AED,#5B21B6);padding:32px;text-align:center;}
+.email-logo{font-size:1.5rem;font-weight:800;color:white;}
+.email-body{padding:32px;}
+.btn{display:inline-block;padding:14px 28px;background:linear-gradient(135deg,#7C3AED,#5B21B6);color:white;text-decoration:none;border-radius:10px;font-weight:700;margin:20px 0;}
+.footer{padding:20px 32px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.82rem;color:#6b6b85;text-align:center;}
+</style></head>
+<body>
+<div class="email-wrap">
+  <div class="email-header"><div class="email-logo">💬 Khandhars Chat</div></div>
+  <div class="email-body">
+    <h2 style="margin-bottom:8px;">Verify your email address</h2>
+    <p style="color:#a0a0b8;">Hi {{ user.display_name }}, click the button below to verify your email address.</p>
+    <div style="text-align:center;">
+      <a href="{{ config.APP_URL }}/auth/verify-email/{{ token }}" class="btn">Verify Email Address</a>
+    </div>
+    <p style="color:#6b6b85;font-size:0.85rem;">This link expires in 24 hours. If you didn't create an account, ignore this email.</p>
+  </div>
+  <div class="footer">© 2024 Khandhars Chat. All rights reserved.</div>
+</div>
+</body></html>

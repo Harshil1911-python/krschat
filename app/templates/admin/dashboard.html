@@ -1,0 +1,167 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="admin-page-title">Dashboard</div>
+<div class="admin-page-sub">Welcome back, {{ admin.username }}. Here's what's happening.</div>
+
+<!-- Stats Grid -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-label">Total Users</div>
+    <div class="stat-value text-gradient">{{ stats.total_users | default(0) }}</div>
+    <div class="stat-change positive">+{{ stats.new_users_today | default(0) }} today</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Online Now</div>
+    <div class="stat-value" style="color:var(--success);">{{ stats.online_users | default(0) }}</div>
+    <div class="stat-change" style="color:var(--text-3);">{{ stats.active_users | default(0) }} this week</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Messages</div>
+    <div class="stat-value text-gradient">{{ stats.total_messages | default(0) }}</div>
+    <div class="stat-change positive">+{{ stats.messages_today | default(0) }} today</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Groups</div>
+    <div class="stat-value text-gradient">{{ stats.total_groups | default(0) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Page Views</div>
+    <div class="stat-value text-gradient">{{ stats.total_views | default(0) }}</div>
+    <div class="stat-change positive">+{{ stats.views_today | default(0) }} today</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Media Uploads</div>
+    <div class="stat-value text-gradient">{{ stats.total_media | default(0) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Pending Reports</div>
+    <div class="stat-value" style="color:{% if stats.pending_reports > 0 %}var(--warning){% else %}var(--text){% endif %};">{{ stats.pending_reports | default(0) }}</div>
+    <div class="stat-change">
+      {% if stats.pending_reports > 0 %}<a href="/admin/reports" style="color:var(--warning);">Review now →</a>{% else %}All clear ✓{% endif %}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Banned Users</div>
+    <div class="stat-value" style="color:var(--danger);">{{ stats.banned_users | default(0) }}</div>
+  </div>
+</div>
+
+<!-- Charts & Tables Row -->
+<div class="grid-2" style="margin-top:24px; gap:20px;">
+  <!-- Recent Users -->
+  <div class="admin-card">
+    <div class="admin-card-header">
+      <div class="admin-card-title">Recent Registrations</div>
+      <a href="/admin/users" class="btn btn-ghost btn-sm">View All →</a>
+    </div>
+    <div class="admin-card-body" style="padding:0;">
+      <table class="admin-table">
+        <thead>
+          <tr><th>User</th><th>Joined</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for user in recent_users %}
+          <tr>
+            <td>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <img src="{{ user.avatar_url or '/static/images/default-avatar.png' }}" class="avatar avatar-sm" />
+                <div>
+                  <div style="font-weight:600; font-size:0.88rem;">{{ user.display_name }}</div>
+                  <div style="font-size:0.75rem; color:var(--text-3);">@{{ user.username }}</div>
+                </div>
+              </div>
+            </td>
+            <td style="font-size:0.82rem; color:var(--text-3);">{{ user.created_at.strftime('%b %d') }}</td>
+            <td>
+              {% if user.is_banned %}
+                <span class="badge badge-danger">Banned</span>
+              {% elif user.is_online %}
+                <span class="badge badge-success">Online</span>
+              {% else %}
+                <span class="badge" style="background:var(--surface-3);color:var(--text-3);">Offline</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" style="text-align:center;color:var(--text-3);padding:20px;">No users yet</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Pending Reports -->
+  <div class="admin-card">
+    <div class="admin-card-header">
+      <div class="admin-card-title">Pending Reports</div>
+      <a href="/admin/reports" class="btn btn-ghost btn-sm">View All →</a>
+    </div>
+    <div class="admin-card-body" style="padding:0;">
+      <table class="admin-table">
+        <thead>
+          <tr><th>Reported</th><th>Reason</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          {% for report in recent_reports %}
+          <tr>
+            <td style="font-size:0.88rem;">{{ report.reported.display_name if report.reported else 'Unknown' }}</td>
+            <td><span class="badge badge-warning">{{ report.reason }}</span></td>
+            <td>
+              <a href="/admin/users/{{ report.reported_id }}" class="btn btn-secondary btn-sm">Review</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" style="text-align:center;color:var(--text-3);padding:20px;">No pending reports ✓</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="admin-card" style="margin-top:20px;">
+  <div class="admin-card-header">
+    <div class="admin-card-title">Quick Actions</div>
+  </div>
+  <div class="admin-card-body">
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <a href="/admin/announcements" class="btn btn-primary btn-sm">📢 New Announcement</a>
+      <a href="/admin/pages/new" class="btn btn-secondary btn-sm">📄 New Page</a>
+      <a href="/admin/settings" class="btn btn-secondary btn-sm">⚙️ Site Settings</a>
+      <a href="/admin/settings" class="btn btn-secondary btn-sm">📞 Update Contact Info</a>
+      <a href="/admin/landing" class="btn btn-secondary btn-sm">🏠 Edit Landing Page</a>
+      <a href="/admin/users?status=banned" class="btn btn-secondary btn-sm">🚫 Banned Users</a>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Audit -->
+<div class="admin-card" style="margin-top:20px;">
+  <div class="admin-card-header">
+    <div class="admin-card-title">Recent Activity</div>
+    <a href="/admin/audit" class="btn btn-ghost btn-sm">Full Log →</a>
+  </div>
+  <div class="admin-card-body" style="padding:0;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Action</th><th>Actor</th><th>IP</th><th>Time</th></tr>
+      </thead>
+      <tbody>
+        {% for log in recent_audit %}
+        <tr>
+          <td><code style="font-size:0.8rem; background:var(--surface-3); padding:2px 6px; border-radius:4px;">{{ log.action }}</code></td>
+          <td style="font-size:0.82rem; color:var(--text-3);">{{ log.actor_type }}</td>
+          <td style="font-size:0.82rem; color:var(--text-3);">{{ log.ip_address or '—' }}</td>
+          <td style="font-size:0.82rem; color:var(--text-3);">{{ log.created_at.strftime('%H:%M:%S') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align:center;color:var(--text-3);padding:20px;">No activity yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

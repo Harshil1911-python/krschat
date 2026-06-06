@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}My Profile - {{ site.app_name }}{% endblock %}
+{% block body %}
+<div class="auth-layout" style="align-items:flex-start;padding:80px 20px;">
+  <div class="auth-card animate-slideUp" style="max-width:560px;width:100%;">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <a href="/chat/" class="btn btn-ghost btn-sm">← Back</a>
+      <h2 style="font-family:var(--font-display);font-size:1.4rem;font-weight:800;">My Profile</h2>
+    </div>
+
+    <!-- Avatar -->
+    <div style="text-align:center;margin-bottom:24px;">
+      <div class="avatar-wrap" style="display:inline-block;">
+        <img src="{{ current_user.avatar_url or '/static/images/default-avatar.png' }}" class="avatar avatar-xxl" id="avatarPreview" />
+        {% if current_user.is_verified %}<div class="verified-badge" style="width:24px;height:24px;font-size:14px;">✓</div>{% endif %}
+      </div>
+      <div style="margin-top:12px;">
+        <label class="btn btn-secondary btn-sm" style="cursor:pointer;">
+          📷 Change Photo
+          <input type="file" accept="image/*" style="display:none;" onchange="uploadAvatar(this)" />
+        </label>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for category, message in messages %}
+    <div style="padding:10px 14px;background:{% if category=='error' %}rgba(239,68,68,0.1){% else %}rgba(16,185,129,0.1){% endif %};border:1px solid {% if category=='error' %}var(--danger){% else %}var(--success){% endif %};border-radius:var(--radius);margin-bottom:16px;font-size:0.88rem;color:{% if category=='error' %}var(--danger){% else %}var(--success){% endif %};">{{ message }}</div>
+    {% endfor %}{% endif %}{% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.profile') }}">
+      <div class="grid-2" style="gap:12px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Username</label>
+          <input type="text" name="username" class="form-control" value="{{ current_user.username }}" />
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">Display Name</label>
+          <input type="text" name="display_name" class="form-control" value="{{ current_user.display_name }}" />
+        </div>
+      </div>
+      <div class="form-group mt-3">
+        <label class="form-label">Bio</label>
+        <textarea name="bio" class="form-control" rows="3" placeholder="Tell people about yourself...">{{ current_user.bio or '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Theme</label>
+        <select name="theme" class="form-control">
+          <option value="dark" {% if current_user.theme == 'dark' %}selected{% endif %}>🌙 Dark</option>
+          <option value="light" {% if current_user.theme == 'light' %}selected{% endif %}>☀️ Light</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div class="form-label" style="margin-bottom:10px;">Privacy Settings</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+            <span style="font-size:0.88rem;">Show last seen</span>
+            <input type="checkbox" name="show_last_seen" {% if current_user.show_last_seen %}checked{% endif %} style="accent-color:var(--primary);" />
+          </label>
+          <label style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+            <span style="font-size:0.88rem;">Show online status</span>
+            <input type="checkbox" name="show_online_status" {% if current_user.show_online_status %}checked{% endif %} style="accent-color:var(--primary);" />
+          </label>
+          <label style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+            <span style="font-size:0.88rem;">Read receipts</span>
+            <input type="checkbox" name="show_read_receipts" {% if current_user.show_read_receipts %}checked{% endif %} style="accent-color:var(--primary);" />
+          </label>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary w-full">Save Changes</button>
+    </form>
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;">
+      <a href="{{ url_for('auth.forgot_password') }}" class="btn btn-secondary btn-sm flex-1" style="text-align:center;">Change Password</a>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-danger btn-sm">Sign Out</a>
+    </div>
+  </div>
+</div>
+<script>
+async function uploadAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const preview = URL.createObjectURL(file);
+  document.getElementById('avatarPreview').src = preview;
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch('/api/v1/users/me/avatar', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.success) showToast('Avatar updated!', 'success');
+  else showToast(data.error || 'Upload failed', 'error');
+}
+</script>
+{% endblock %}

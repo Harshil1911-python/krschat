@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ page.meta_title or page.title }} - {{ site.app_name }}{% endblock %}
+{% block meta_description %}{{ page.meta_description or '' }}{% endblock %}
+{% block body %}
+<nav class="landing-nav scrolled">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo"><div class="logo-icon">💬</div>{{ site.app_name }}</a>
+      <div class="nav-cta">
+        <a href="{{ url_for('auth.login') }}" class="btn btn-ghost btn-sm">Sign In</a>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-sm">Get Started</a>
+      </div>
+    </div>
+  </div>
+</nav>
+<div style="padding:120px 0 80px; min-height:80vh;">
+  <div class="container" style="max-width:800px;">
+    <h1 style="margin-bottom:24px;">{{ page.title if page else 'Page Not Found' }}</h1>
+    <div style="color:var(--text-2); line-height:1.8; font-size:0.95rem;">
+      {% if page %}{{ page.content | safe }}{% else %}<p>This page could not be found.</p>{% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

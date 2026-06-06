@@ -1,0 +1,129 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Advertisements{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">Advertisement Manager</div>
+    <div class="admin-page-sub">Create and manage ads displayed on your platform</div>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('newAdModal').classList.add('open')">+ New Ad</button>
+</div>
+
+<div class="admin-card">
+  <div class="admin-card-body" style="padding:0;overflow-x:auto;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Ad Name</th><th>Type</th><th>Placement</th><th>Impressions</th><th>Clicks</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for ad in ads %}
+        <tr>
+          <td style="font-weight:600;font-size:0.9rem;">{{ ad.name }}</td>
+          <td><span class="badge badge-primary">{{ ad.type }}</span></td>
+          <td><span class="badge" style="background:var(--surface-3);color:var(--text-2);">{{ ad.placement }}</span></td>
+          <td style="font-size:0.88rem;">{{ ad.impressions }}</td>
+          <td style="font-size:0.88rem;">
+            {{ ad.clicks }}
+            {% if ad.impressions > 0 %}
+            <span style="color:var(--text-3);font-size:0.75rem;">({{ ((ad.clicks / ad.impressions) * 100) | round(1) }}% CTR)</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if ad.is_active %}<span class="badge badge-success">Active</span>
+            {% else %}<span class="badge" style="background:var(--surface-3);color:var(--text-3);">Inactive</span>{% endif %}
+          </td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-secondary btn-sm" onclick="toggleAd('{{ ad.id }}')">Toggle</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteAd('{{ ad.id }}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-3);">No ads created yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- New Ad Modal -->
+<div class="modal-overlay" id="newAdModal">
+  <div class="modal" style="max-width:540px;">
+    <div class="modal-header">
+      <h3 class="modal-title">New Advertisement</h3>
+      <button class="modal-close" onclick="document.getElementById('newAdModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Ad Name *</label>
+      <input type="text" id="adName" class="form-control" placeholder="Summer Campaign 2024" />
+    </div>
+    <div class="grid-2" style="gap:12px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Ad Type</label>
+        <select id="adType" class="form-control">
+          <option value="banner">Banner</option>
+          <option value="popup">Popup</option>
+          <option value="inline">Inline</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Placement</label>
+        <select id="adPlacement" class="form-control">
+          <option value="landing">Landing Page</option>
+          <option value="chat">Chat Sidebar</option>
+          <option value="all">All Pages</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group mt-3">
+      <label class="form-label">Image URL</label>
+      <input type="url" id="adImageUrl" class="form-control" placeholder="https://..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Link URL</label>
+      <input type="url" id="adLinkUrl" class="form-control" placeholder="https://..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Custom HTML (optional)</label>
+      <textarea id="adHtml" class="form-control" rows="3" placeholder="<div>Custom ad HTML...</div>"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('newAdModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="createAd()">Create Ad</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function createAd() {
+  const data = {
+    name: document.getElementById('adName').value,
+    type: document.getElementById('adType').value,
+    placement: document.getElementById('adPlacement').value,
+    image_url: document.getElementById('adImageUrl').value,
+    link_url: document.getElementById('adLinkUrl').value,
+    html_content: document.getElementById('adHtml').value,
+  };
+  if (!data.name) return showToast('Ad name is required', 'error');
+  const res = await fetch('/admin/ads/new', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (json.success) { showToast('Ad created!', 'success'); setTimeout(() => location.reload(), 800); }
+  else showToast('Error creating ad', 'error');
+}
+
+async function toggleAd(id) {
+  showToast('Feature coming soon', 'info');
+}
+
+async function deleteAd(id) {
+  if (!confirm('Delete this ad?')) return;
+  showToast('Ad deleted (implement delete endpoint)', 'success');
+}
+</script>
+{% endblock %}

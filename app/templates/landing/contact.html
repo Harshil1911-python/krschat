@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Contact Us - {{ site.app_name }}{% endblock %}
+{% block body %}
+<nav class="landing-nav scrolled">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo"><div class="logo-icon">💬</div>{{ site.app_name }}</a>
+      <div class="nav-cta">
+        <a href="{{ url_for('auth.login') }}" class="btn btn-ghost btn-sm">Sign In</a>
+        <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-sm">Get Started</a>
+      </div>
+    </div>
+  </div>
+</nav>
+<div style="padding:120px 0 80px; min-height:80vh; background:radial-gradient(ellipse at 30% 50%,rgba(124,58,237,0.1) 0%,transparent 50%);">
+  <div class="container" style="max-width:700px;">
+    <div class="section-label" style="margin-bottom:16px;">Contact</div>
+    <h1 style="margin-bottom:12px;">Get in <span class="text-gradient">Touch</span></h1>
+    <p style="color:var(--text-2); margin-bottom:48px;">We're here to help. Reach out through any of these channels.</p>
+
+    <div class="grid-2" style="gap:20px; margin-bottom:48px;">
+      {% if site.support_email %}
+      <div class="card">
+        <div style="font-size:2rem; margin-bottom:12px;">📧</div>
+        <h3 style="font-size:1rem; margin-bottom:6px;">Email Support</h3>
+        <a href="mailto:{{ site.support_email }}" style="color:var(--primary-light);">{{ site.support_email }}</a>
+      </div>
+      {% endif %}
+      {% if site.helpline_number %}
+      <div class="card">
+        <div style="font-size:2rem; margin-bottom:12px;">📞</div>
+        <h3 style="font-size:1rem; margin-bottom:6px;">Helpline</h3>
+        <a href="tel:{{ site.helpline_number }}" style="color:var(--primary-light);">{{ site.helpline_number }}</a>
+      </div>
+      {% endif %}
+      {% if site.support_phone %}
+      <div class="card">
+        <div style="font-size:2rem; margin-bottom:12px;">📱</div>
+        <h3 style="font-size:1rem; margin-bottom:6px;">Support Phone</h3>
+        <a href="tel:{{ site.support_phone }}" style="color:var(--primary-light);">{{ site.support_phone }}</a>
+      </div>
+      {% endif %}
+      {% if site.contact_gmail %}
+      <div class="card">
+        <div style="font-size:2rem; margin-bottom:12px;">✉️</div>
+        <h3 style="font-size:1rem; margin-bottom:6px;">Gmail</h3>
+        <a href="mailto:{{ site.contact_gmail }}" style="color:var(--primary-light);">{{ site.contact_gmail }}</a>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if page and page.content %}
+    <div style="color:var(--text-2); line-height:1.8;">{{ page.content | safe }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

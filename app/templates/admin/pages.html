@@ -1,0 +1,62 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}CMS Pages{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">CMS Pages</div>
+    <div class="admin-page-sub">Manage all public-facing pages — no code required</div>
+  </div>
+  <a href="/admin/pages/new" class="btn btn-primary">+ New Page</a>
+</div>
+
+<div class="admin-card">
+  <div class="admin-card-body" style="padding:0;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Title</th><th>Slug</th><th>Status</th><th>Type</th><th>Updated</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for page in pages %}
+        <tr>
+          <td>
+            <div style="font-weight:600;font-size:0.9rem;">{{ page.title }}</div>
+          </td>
+          <td>
+            <code style="font-size:0.8rem;background:var(--surface-3);padding:2px 8px;border-radius:4px;">/p/{{ page.slug }}</code>
+          </td>
+          <td>
+            {% if page.is_published %}
+              <span class="badge badge-success">Published</span>
+            {% else %}
+              <span class="badge" style="background:var(--surface-3);color:var(--text-3);">Draft</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if page.is_system %}
+              <span class="badge badge-primary">System</span>
+            {% else %}
+              <span class="badge" style="background:var(--surface-3);color:var(--text-2);">Custom</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.82rem;color:var(--text-3);">{{ page.updated_at.strftime('%b %d, %Y') }}</td>
+          <td>
+            <div class="actions">
+              <a href="/admin/pages/{{ page.id }}/edit" class="btn btn-secondary btn-sm">Edit</a>
+              <a href="/p/{{ page.slug }}" target="_blank" class="btn btn-ghost btn-sm">Preview ↗</a>
+              {% if not page.is_system %}
+              <form method="POST" action="/admin/pages/{{ page.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this page?')">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-3);">No pages yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% block title %}{{ site.app_name }}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="/static/css/chat.css" />
+{% endblock %}
+
+{% block body %}
+<div class="chat-app" id="chatApp">
+
+  <!-- Mobile Overlay -->
+  <div class="mobile-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside class="chat-sidebar" id="chatSidebar">
+    <!-- Sidebar Header -->
+    <div class="sidebar-header">
+      <div class="sidebar-logo">💬 <span>{{ site.app_name }}</span></div>
+      <div style="display:flex; gap:4px;">
+        <button class="btn-icon btn-ghost" onclick="showNewChatModal()" title="New Chat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <div class="dropdown" id="moreMenuDrop">
+          <button class="btn-icon btn-ghost" onclick="toggleDropdown('moreMenuDrop')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+          <div class="dropdown-menu" id="moreMenuDropdown">
+            <button class="dropdown-item" onclick="showNewGroupModal()">👥 New Group</button>
+            <button class="dropdown-item" onclick="window.location='/auth/profile'">👤 Profile</button>
+            <button class="dropdown-item" onclick="toggleTheme()">🌙 Toggle Theme</button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item danger" onclick="window.location='/auth/logout'">🚪 Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="sidebar-search">
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="form-control" id="searchInput" placeholder="Search conversations..." oninput="searchChats(this.value)" />
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab active" id="tabAll" onclick="switchTab('all')">All</button>
+      <button class="sidebar-tab" id="tabGroups" onclick="switchTab('groups')">Groups</button>
+      <button class="sidebar-tab" id="tabArchived" onclick="switchTab('archived')">Archived</button>
+    </div>
+
+    <!-- Chat List -->
+    <div class="chat-list" id="chatList">
+      <div style="padding:20px; text-align:center; color:var(--text-3);">
+        <div class="spinner" style="margin:0 auto 10px;"></div>
+        Loading chats...
+      </div>
+    </div>
+
+    <!-- Profile -->
+    <div class="sidebar-profile" onclick="window.location='/auth/profile'">
+      <div class="avatar-wrap">
+        <img src="{{ current_user.avatar_url or '/static/images/default-avatar.png' }}" alt="" class="avatar avatar-sm" />
+        <div class="online-dot sm"></div>
+      </div>
+      <div style="flex:1; min-width:0;">
+        <div class="profile-name truncate">{{ current_user.display_name }}</div>
+        <div class="profile-status">● Online</div>
+      </div>
+      <button class="btn-icon btn-ghost btn-icon-sm" title="Settings">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Chat Area -->
+  <main class="chat-main" id="chatMain">
+    <!-- Welcome Screen -->
+    <div class="welcome-screen" id="welcomeScreen">
+      <div class="welcome-art">💬</div>
+      <h2>{{ site.app_name }}</h2>
+      <p>Send and receive messages securely. Select a conversation or start a new one.</p>
+      <button class="btn btn-primary mt-4" onclick="showNewChatModal()">Start Chatting</button>
+    </div>
+
+    <!-- Chat Window (hidden initially) -->
+    <div id="chatWindow" class="hidden" style="display:flex; flex-direction:column; height:100%;">
+      <!-- Chat Header -->
+      <div class="chat-header" id="chatHeader">
+        <button class="btn-icon btn-ghost" id="backBtn" onclick="backToList()" style="display:none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="avatar-wrap" id="chatAvatar" onclick="toggleInfoPanel()">
+          <img src="/static/images/default-avatar.png" class="avatar avatar-md" id="headerAvatar" />
+          <div class="online-dot" id="headerOnlineDot" style="display:none;"></div>
+        </div>
+        <div class="chat-header-info" onclick="toggleInfoPanel()" style="cursor:pointer;">
+          <div class="chat-header-name" id="chatHeaderName">Select a chat</div>
+          <div class="chat-header-status offline" id="chatHeaderStatus">Offline</div>
+        </div>
+        <div class="chat-header-actions">
+          <button class="btn-icon btn-ghost" onclick="initiateVoiceCall()" title="Voice Call" id="voiceCallBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.59a16 16 0 0 0 5.46 5.46l1.96-1.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </button>
+          <button class="btn-icon btn-ghost" onclick="initiateVideoCall()" title="Video Call">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          </button>
+          <button class="btn-icon btn-ghost" onclick="showSearchPanel()" title="Search">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+          <div class="dropdown" id="chatMenuDrop">
+            <button class="btn-icon btn-ghost" onclick="toggleDropdown('chatMenuDrop')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+            </button>
+            <div class="dropdown-menu" id="chatMenuDropdown">
+              <button class="dropdown-item" onclick="toggleInfoPanel()">ℹ️ View Info</button>
+              <button class="dropdown-item" onclick="searchInChat()">🔍 Search Messages</button>
+              <button class="dropdown-item" onclick="archiveCurrentChat()">📥 Archive Chat</button>
+              <button class="dropdown-item" onclick="clearCurrentChat()">🗑️ Clear Messages</button>
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item danger" onclick="blockCurrentUser()">🚫 Block User</button>
+              <button class="dropdown-item danger" onclick="reportCurrentUser()">⚠️ Report</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Messages Area -->
+      <div class="chat-messages" id="messagesContainer">
+        <div style="text-align:center; color:var(--text-3); font-size:0.85rem; padding:20px;">
+          <div class="spinner" style="margin:0 auto 10px;"></div>
+          Loading messages...
+        </div>
+      </div>
+
+      <!-- Typing Indicator -->
+      <div id="typingIndicator" class="hidden" style="padding:4px 16px 0;">
+        <div class="typing-indicator">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <span id="typingName" style="font-size:0.8rem;color:var(--text-3);margin-left:4px;"></span>
+        </div>
+      </div>
+
+      <!-- Reply Preview -->
+      <div id="replyPreview" class="hidden" style="padding:0 16px;">
+        <div class="reply-preview">
+          <div>
+            <div style="font-size:0.78rem;font-weight:600;color:var(--primary-light);" id="replyAuthor"></div>
+            <div style="font-size:0.85rem;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;" id="replyContent"></div>
+          </div>
+          <button class="close-btn" onclick="cancelReply()">✕</button>
+        </div>
+      </div>
+
+      <!-- Input Area -->
+      <div class="chat-input-area">
+        <div class="chat-input-row">
+          <button class="emoji-picker-btn" onclick="toggleEmojiPanel()" title="Emoji">😊</button>
+          <button class="attach-btn" onclick="toggleAttachMenu()" title="Attach File">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          <textarea class="chat-input" id="messageInput" placeholder="Type a message..." rows="1"
+            onkeydown="handleInputKey(event)" oninput="handleInputChange(this)"></textarea>
+          <button class="voice-btn" id="voiceNoteBtn" onmousedown="startVoiceNote()" onmouseup="stopVoiceNote()" ontouchstart="startVoiceNote()" ontouchend="stopVoiceNote()" title="Hold for voice note">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+
+        <!-- Emoji Panel -->
+        <div class="emoji-panel hidden" id="emojiPanel">
+          <div class="emoji-grid">
+            {% for emoji in ['😊','😂','❤️','👍','🎉','🔥','😍','🙏','💪','😭','🤣','✨','💀','🥺','😎','🤔','👀','💯','🎊','🚀','💬','✅','🔐','🌟','🎵','🎨','🤝','💡','🌈','🎯'] %}
+            <button class="emoji-btn" onclick="insertEmoji('{{ emoji }}')">{{ emoji }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Attach Menu -->
+        <div class="attach-menu hidden" id="attachMenu">
+          <label class="attach-option" style="cursor:pointer;">
+            <div class="icon" style="background:rgba(124,58,237,0.15);color:var(--primary-light);">🖼️</div>
+            Image / Video
+            <input type="file" accept="image/*,video/*" onchange="uploadFile(this,'image')" style="display:none;">
+          </label>
+          <label class="attach-option" style="cursor:pointer;">
+            <div class="icon" style="background:rgba(6,214,160,0.15);color:var(--accent);">📄</div>
+            Document / PDF
+            <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.ppt,.pptx" onchange="uploadFile(this,'document')" style="display:none;">
+          </label>
+          <label class="attach-option" style="cursor:pointer;">
+            <div class="icon" style="background:rgba(245,158,11,0.15);color:var(--warning);">🎵</div>
+            Audio File
+            <input type="file" accept="audio/*" onchange="uploadFile(this,'audio')" style="display:none;">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Panel -->
+    <div class="info-panel" id="infoPanel">
+      <div class="info-panel-header">
+        <button class="btn-icon btn-ghost" onclick="toggleInfoPanel()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span style="font-family:var(--font-display);font-weight:700;">Chat Info</span>
+      </div>
+      <div class="info-panel-content" id="infoPanelContent">
+        <div style="text-align:center; padding:20px 0;">
+          <div class="avatar-wrap" style="display:inline-block; margin-bottom:12px;">
+            <img src="/static/images/default-avatar.png" class="avatar avatar-xxl" id="infoPanelAvatar" />
+          </div>
+          <div style="font-family:var(--font-display); font-weight:700; font-size:1.2rem;" id="infoPanelName"></div>
+          <div style="color:var(--text-3); font-size:0.85rem;" id="infoPanelStatus"></div>
+        </div>
+        <div class="divider" style="margin:16px 0;"></div>
+        <div class="info-section">
+          <div class="info-section-title">Bio</div>
+          <div style="font-size:0.88rem; color:var(--text-2);" id="infoPanelBio">—</div>
+        </div>
+        <div class="info-section">
+          <div class="info-section-title">Shared Media</div>
+          <div class="info-media-grid" id="infoPanelMedia"></div>
+        </div>
+        <div class="info-section" style="display:flex; flex-direction:column; gap:8px;">
+          <button class="btn btn-secondary w-full btn-sm" onclick="searchInChat()">🔍 Search Messages</button>
+          <button class="btn btn-secondary w-full btn-sm" onclick="exportChat()">📤 Export Chat</button>
+          <button class="btn btn-danger w-full btn-sm" onclick="blockCurrentUser()">🚫 Block User</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- New Chat Modal -->
+<div class="modal-overlay" id="newChatModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">New Message</h3>
+      <button class="modal-close" onclick="closeModal('newChatModal')">✕</button>
+    </div>
+    <div class="input-icon mb-3">
+      <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" class="form-control" id="userSearchInput" placeholder="Search by username or name..." oninput="searchUsers(this.value)" />
+    </div>
+    <div id="userSearchResults" style="max-height:300px; overflow-y:auto;"></div>
+  </div>
+</div>
+
+<!-- New Group Modal -->
+<div class="modal-overlay" id="newGroupModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Create Group</h3>
+      <button class="modal-close" onclick="closeModal('newGroupModal')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Group Name *</label>
+      <input type="text" class="form-control" id="groupNameInput" placeholder="Enter group name" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <input type="text" class="form-control" id="groupDescInput" placeholder="Optional description" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Add Members</label>
+      <div class="input-icon">
+        <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" class="form-control" id="groupMemberSearch" placeholder="Search users..." oninput="searchGroupMembers(this.value)" />
+      </div>
+    </div>
+    <div id="selectedMembers" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; min-height:30px;"></div>
+    <div id="groupMemberResults" style="max-height:200px; overflow-y:auto;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('newGroupModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="createGroup()">Create Group</button>
+    </div>
+  </div>
+</div>
+
+<!-- Media Viewer -->
+<div class="media-viewer hidden" id="mediaViewer" onclick="closeMediaViewer()">
+  <button class="media-viewer-close">✕</button>
+  <img id="mediaViewerImg" src="" style="display:none;" />
+  <video id="mediaViewerVideo" controls style="display:none;"></video>
+</div>
+
+<!-- Context Menu -->
+<div class="context-menu" id="contextMenu">
+  <button class="dropdown-item" onclick="replyToMessage()">↩️ Reply</button>
+  <button class="dropdown-item" onclick="reactToMessage()">😊 React</button>
+  <button class="dropdown-item" onclick="forwardMessage()">↗️ Forward</button>
+  <button class="dropdown-item" onclick="copyMessage()">📋 Copy</button>
+  <button class="dropdown-item" id="editMessageBtn" onclick="editMessage()">✏️ Edit</button>
+  <button class="dropdown-item" onclick="pinMessage()">📌 Pin</button>
+  <div class="dropdown-divider"></div>
+  <button class="dropdown-item danger" onclick="deleteMessage()">🗑️ Delete</button>
+</div>
+
+<!-- Call UI -->
+<div class="modal-overlay hidden" id="callModal">
+  <div class="modal" style="text-align:center; max-width:320px;">
+    <div style="margin-bottom:16px;">
+      <img src="" id="callAvatar" class="avatar avatar-xl" style="margin:0 auto 12px;" />
+      <div id="callName" style="font-family:var(--font-display); font-size:1.2rem; font-weight:700;"></div>
+      <div id="callStatus" style="color:var(--text-3); font-size:0.88rem;">Calling...</div>
+    </div>
+    <div style="display:flex; justify-content:center; gap:20px; margin-top:24px;">
+      <button class="btn btn-danger btn-icon" style="width:56px;height:56px;" onclick="endCall()">📵</button>
+      <button class="btn btn-success btn-icon" style="width:56px;height:56px;" id="acceptCallBtn" onclick="acceptCall()" style="display:none;">📞</button>
+      <button class="btn btn-secondary btn-icon" style="width:56px;height:56px;" onclick="toggleMute()">🎤</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="/static/js/chat.js"></script>
+<script>
+const CURRENT_USER = {
+  id: "{{ current_user.id }}",
+  username: "{{ current_user.username }}",
+  display_name: "{{ current_user.display_name | replace('"','\"') }}",
+  avatar_url: "{{ current_user.avatar_url or '/static/images/default-avatar.png' }}",
+};
+{% if active_chat_id %}window.OPEN_CHAT_ID = "{{ active_chat_id }}";{% endif %}
+{% if active_group_id %}window.OPEN_GROUP_ID = "{{ active_group_id }}";{% endif %}
+</script>
+{% endblock %}

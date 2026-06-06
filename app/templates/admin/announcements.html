@@ -1,0 +1,135 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Announcements{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">Announcements</div>
+    <div class="admin-page-sub">Broadcast messages to your users</div>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('newAnnModal').classList.add('open')">+ New Announcement</button>
+</div>
+
+<div class="admin-card">
+  <div class="admin-card-body" style="padding:0;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Title</th><th>Type</th><th>Target</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for ann in announcements %}
+        <tr>
+          <td>
+            <div style="font-weight:600;font-size:0.9rem;">{{ ann.title }}</div>
+            <div style="font-size:0.8rem;color:var(--text-3);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ann.content }}</div>
+          </td>
+          <td><span class="badge badge-primary">{{ ann.type }}</span></td>
+          <td><span class="badge" style="background:var(--surface-3);color:var(--text-2);">{{ ann.target }}</span></td>
+          <td>
+            {% if ann.is_active %}
+              <span class="badge badge-success">Active</span>
+            {% else %}
+              <span class="badge" style="background:var(--surface-3);color:var(--text-3);">Inactive</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.82rem;color:var(--text-3);">{{ ann.created_at.strftime('%b %d, %Y') }}</td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-secondary btn-sm" onclick="toggleAnn('{{ ann.id }}')">
+                {{ 'Deactivate' if ann.is_active else 'Activate' }}
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="deleteAnn('{{ ann.id }}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-3);">No announcements yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- New Announcement Modal -->
+<div class="modal-overlay" id="newAnnModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">New Announcement</h3>
+      <button class="modal-close" onclick="document.getElementById('newAnnModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Title *</label>
+      <input type="text" id="annTitle" class="form-control" placeholder="Announcement title" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Message *</label>
+      <textarea id="annContent" class="form-control" rows="3" placeholder="Announcement message..."></textarea>
+    </div>
+    <div class="grid-2" style="gap:12px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Type</label>
+        <select id="annType" class="form-control">
+          <option value="banner">Banner (top of page)</option>
+          <option value="popup">Popup</option>
+          <option value="push">Push Notification</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Target</label>
+        <select id="annTarget" class="form-control">
+          <option value="all">Everyone</option>
+          <option value="users">Logged-in users</option>
+          <option value="guests">Guests only</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group mt-3">
+      <label class="form-label">Color</label>
+      <select id="annColor" class="form-control">
+        <option value="purple">Purple (default)</option>
+        <option value="success">Green</option>
+        <option value="warning">Yellow</option>
+        <option value="danger">Red</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('newAnnModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="createAnn()">Create Announcement</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function createAnn() {
+  const data = {
+    title: document.getElementById('annTitle').value,
+    content: document.getElementById('annContent').value,
+    type: document.getElementById('annType').value,
+    target: document.getElementById('annTarget').value,
+    color: document.getElementById('annColor').value,
+  };
+  if (!data.title || !data.content) return showToast('Title and message are required', 'error');
+  const res = await fetch('/admin/announcements/new', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (json.success) { showToast('Announcement created!', 'success'); setTimeout(() => location.reload(), 800); }
+  else showToast('Error creating announcement', 'error');
+}
+
+async function toggleAnn(id) {
+  const res = await fetch(`/admin/announcements/${id}/toggle`, { method: 'POST' });
+  const json = await res.json();
+  if (json.success) { showToast('Updated!', 'success'); setTimeout(() => location.reload(), 600); }
+}
+
+async function deleteAnn(id) {
+  if (!confirm('Delete this announcement?')) return;
+  const res = await fetch(`/admin/announcements/${id}/delete`, { method: 'POST' });
+  const json = await res.json();
+  if (json.success) { showToast('Deleted', 'success'); setTimeout(() => location.reload(), 600); }
+}
+</script>
+{% endblock %}

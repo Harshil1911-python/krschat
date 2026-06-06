@@ -1,0 +1,55 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Audit Logs{% endblock %}
+
+{% block content %}
+<div class="admin-page-title">Audit Logs</div>
+<div class="admin-page-sub">Full activity trail for security and compliance</div>
+
+<div class="admin-card">
+  <div class="admin-card-body" style="padding:0;overflow-x:auto;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Time</th><th>Action</th><th>Actor</th><th>Target</th><th>IP Address</th><th>Details</th></tr>
+      </thead>
+      <tbody>
+        {% for log in logs.items %}
+        <tr>
+          <td style="font-size:0.8rem;color:var(--text-3);white-space:nowrap;">
+            {{ log.created_at.strftime('%b %d %H:%M:%S') }}
+          </td>
+          <td>
+            <code style="font-size:0.78rem;background:var(--surface-3);padding:2px 6px;border-radius:4px;color:var(--primary-light);">{{ log.action }}</code>
+          </td>
+          <td>
+            <div style="font-size:0.82rem;">
+              <span class="badge {% if log.actor_type == 'admin' %}badge-primary{% else %}badge-success{% endif %}">{{ log.actor_type }}</span>
+              {% if log.actor_id %}
+              <span style="color:var(--text-3);font-size:0.75rem;margin-left:4px;">{{ log.actor_id[:8] }}...</span>
+              {% endif %}
+            </div>
+          </td>
+          <td style="font-size:0.8rem;color:var(--text-3);">
+            {% if log.target_id %}{{ log.target_id[:8] }}...{% else %}—{% endif %}
+          </td>
+          <td style="font-size:0.82rem;color:var(--text-3);">{{ log.ip_address or '—' }}</td>
+          <td style="font-size:0.78rem;color:var(--text-3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ log.details or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-3);">No audit logs yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if logs.pages > 1 %}
+<div class="pagination" style="margin-top:16px;">
+  {% if logs.has_prev %}<a href="?page={{ logs.prev_num }}" class="page-btn">←</a>{% endif %}
+  {% for p in logs.iter_pages() %}
+    {% if p %}<a href="?page={{ p }}" class="page-btn {% if p == logs.page %}active{% endif %}">{{ p }}</a>
+    {% else %}<span class="page-btn">…</span>{% endif %}
+  {% endfor %}
+  {% if logs.has_next %}<a href="?page={{ logs.next_num }}" class="page-btn">→</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Admin Management{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">Admin Accounts</div>
+    <div class="admin-page-sub">Manage administrator access to the control panel</div>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('newAdminModal').classList.add('open')">+ Add Admin</button>
+</div>
+
+<div class="admin-card">
+  <div class="admin-card-body" style="padding:0;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Admin</th><th>Role</th><th>Last Login</th><th>Status</th><th>Created</th></tr>
+      </thead>
+      <tbody>
+        {% for a in admins %}
+        <tr>
+          <td>
+            <div style="font-weight:600;font-size:0.9rem;">{{ a.username }}</div>
+            <div style="font-size:0.78rem;color:var(--text-3);">{{ a.email }}</div>
+          </td>
+          <td>
+            <span class="badge {% if a.role == 'superadmin' %}badge-danger{% else %}badge-primary{% endif %}">
+              {{ a.role | upper }}
+            </span>
+          </td>
+          <td style="font-size:0.82rem;color:var(--text-3);">{{ a.last_login.strftime('%b %d, %Y %H:%M') if a.last_login else 'Never' }}</td>
+          <td>
+            {% if a.is_active %}<span class="badge badge-success">Active</span>
+            {% else %}<span class="badge badge-danger">Inactive</span>{% endif %}
+          </td>
+          <td style="font-size:0.82rem;color:var(--text-3);">{{ a.created_at.strftime('%b %d, %Y') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text-3);">No admins found</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- New Admin Modal -->
+<div class="modal-overlay" id="newAdminModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Add New Admin</h3>
+      <button class="modal-close" onclick="document.getElementById('newAdminModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Username *</label>
+      <input type="text" id="newAdminUsername" class="form-control" placeholder="admin_username" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email *</label>
+      <input type="email" id="newAdminEmail" class="form-control" placeholder="admin@example.com" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password *</label>
+      <input type="password" id="newAdminPassword" class="form-control" placeholder="Strong password..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Role</label>
+      <select id="newAdminRole" class="form-control">
+        <option value="admin">Admin</option>
+        <option value="moderator">Moderator</option>
+        <option value="superadmin">Super Admin</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('newAdminModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="createAdmin()">Create Admin</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function createAdmin() {
+  const data = {
+    username: document.getElementById('newAdminUsername').value,
+    email: document.getElementById('newAdminEmail').value,
+    password: document.getElementById('newAdminPassword').value,
+    role: document.getElementById('newAdminRole').value,
+  };
+  if (!data.username || !data.email || !data.password) return showToast('All fields are required', 'error');
+  const res = await fetch('/admin/admins/new', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (json.success) { showToast('Admin created!', 'success'); setTimeout(() => location.reload(), 800); }
+  else showToast(json.error || 'Error creating admin', 'error');
+}
+</script>
+{% endblock %}
