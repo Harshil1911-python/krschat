@@ -1,8 +1,6 @@
-# ============================================
-# KHANDHARS CHAT - Python Dependencies
-# ============================================
+# KHANDHARS CHAT - Requirements
+# Compatible with Python 3.11 (specified in runtime.txt)
 
-# Core Flask
 Flask==3.0.3
 Flask-SocketIO==5.3.6
 Flask-SQLAlchemy==3.1.1
@@ -12,52 +10,35 @@ Flask-WTF==1.2.1
 Flask-Mail==0.10.0
 Flask-CORS==4.0.1
 Flask-JWT-Extended==4.6.0
+Flask-Limiter==3.8.0
 
-# Database
 SQLAlchemy==2.0.35
 psycopg2-binary==2.9.9
 alembic==1.13.3
 
-# SocketIO (threading mode - works everywhere)
 python-socketio==5.11.3
 python-engineio==4.9.1
 simple-websocket==1.1.0
 
-# Password Security
 argon2-cffi==23.1.0
-
-# Production Server
-gunicorn==22.0.0
-gevent==24.11.1
-gevent-websocket==0.10.1
-
-# Cryptography
 cryptography==43.0.3
 
-# File Uploads
+gunicorn==22.0.0
+gevent==24.2.1
+gevent-websocket==0.10.1
+greenlet==3.0.3
+
 Pillow==10.4.0
 cloudinary==1.41.0
 
-# Utilities
 python-dotenv==1.0.1
 bleach==6.1.0
 python-dateutil==2.9.0
 requests==2.32.3
 Werkzeug==3.0.4
 click==8.1.7
-greenlet==3.1.1
 
-# QR Code
 qrcode==8.0
-
-# Rate Limiting (optional)
-Flask-Limiter==3.8.0
-
-# User Agent Parsing
 user-agents==2.2.0
-
-# Phone number parsing
 phonenumbers==8.13.47
-
-# Markdown
 markdown==3.7
