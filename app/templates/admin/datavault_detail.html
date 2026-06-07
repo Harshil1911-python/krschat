@@ -1,0 +1,82 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}DataVault / {{ vault.name }}{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">{{ vault.name }}</div>
+    <div class="admin-page-sub">{{ vault.vault_type | capitalize }} &middot; Created {{ vault.created_at.strftime('%B %d, %Y at %H:%M') }}</div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-secondary btn-sm" onclick="downloadVault()">Download</button>
+    <a href="/admin/datavault" class="btn btn-ghost btn-sm">&#8592; Back</a>
+  </div>
+</div>
+
+<div class="grid-2" style="gap:20px;align-items:start;">
+  <div class="admin-card">
+    <div class="admin-card-header"><div class="admin-card-title">Details</div></div>
+    <div class="admin-card-body">
+      <div style="display:flex;flex-direction:column;gap:12px;font-size:0.88rem;">
+        <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-3);">Type</span>
+          <span class="badge badge-primary">{{ vault.vault_type }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-3);">Encrypted</span>
+          <span>{% if vault.is_encrypted %}<span class="badge badge-success">Yes</span>{% else %}No{% endif %}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-3);">Public</span>
+          <span>{{ 'Yes' if vault.is_public else 'No' }}</span>
+        </div>
+        {% if vault.tags %}
+        <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-3);">Tags</span>
+          <span>{{ vault.tags }}</span>
+        </div>
+        {% endif %}
+        {% if vault.description %}
+        <div>
+          <span style="color:var(--text-3);">Description</span>
+          <div style="margin-top:4px;">{{ vault.description }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <div class="admin-card-header">
+      <div class="admin-card-title">Data</div>
+      <button class="btn btn-secondary btn-sm" onclick="copyData()">Copy</button>
+    </div>
+    <div class="admin-card-body" style="padding:0;">
+      <pre id="vaultDataContent" style="-webkit-user-select:text;user-select:text;padding:16px;font-size:0.78rem;overflow:auto;max-height:400px;margin:0;font-family:monospace;color:var(--text-2);background:var(--bg-3);white-space:pre-wrap;word-break:break-all;">{{ vault.data or 'No data stored.' }}</pre>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:20px;display:flex;gap:10px;">
+  <form method="POST" action="/admin/datavault/{{ vault.id }}/delete" onsubmit="return confirm('Permanently delete this vault entry?')">
+    <button type="submit" class="btn btn-danger">Delete Entry</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyData() {
+  const text = document.getElementById('vaultDataContent').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard', 'success'));
+}
+function downloadVault() {
+  const text = document.getElementById('vaultDataContent').textContent;
+  const blob = new Blob([text], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '{{ vault.name | replace(" ", "_") }}.json';
+  a.click();
+}
+</script>
+{% endblock %}

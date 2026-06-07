@@ -17,7 +17,11 @@
   <!-- Sidebar -->
   <aside class="admin-sidebar" id="adminSidebar">
     <div class="admin-sidebar-logo">
-      <div class="logo-mark">💬</div>
+      {% if site.logo_url %}
+        <img src="{{ site.logo_url }}" class="app-logo-img sm" alt="{{ site.app_name }}" />
+      {% else %}
+        <div class="app-logo-fallback" style="width:30px;height:30px;font-size:0.8rem;">KC</div>
+      {% endif %}
       <span>Admin Panel</span>
     </div>
     <nav class="admin-nav">
@@ -52,6 +56,10 @@
       <a href="/admin/announcements" class="admin-nav-item {% if request.endpoint == 'admin.announcements' %}active{% endif %}">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0"/></svg>
         Announcements
+      </a>
+      <a href="/admin/datavault" class="admin-nav-item {% if request.endpoint == 'admin.datavault' %}active{% endif %}">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        DataVault
       </a>
       <a href="/admin/ads" class="admin-nav-item {% if request.endpoint == 'admin.ads' %}active{% endif %}">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>

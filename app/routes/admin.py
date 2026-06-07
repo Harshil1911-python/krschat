@@ -655,3 +655,86 @@ def create_admin():
         return jsonify({'success': True})
     flash(f'Admin {username} created.', 'success')
     return redirect(url_for('admin.admins'))
+
+
+# ─── DataVault ────────────────────────────────────────────────────────────────
+
+@admin_bp.route('/datavault')
+@admin_required
+def datavault():
+    from ..models import DataVault
+    admin = get_current_admin()
+    vaults = DataVault.query.order_by(DataVault.created_at.desc()).all()
+    return render_template('admin/datavault.html', admin=admin, vaults=vaults)
+
+
+@admin_bp.route('/datavault/new', methods=['POST'])
+@admin_required
+def create_vault():
+    from ..models import DataVault
+    data = request.get_json() if request.is_json else request.form
+    vault = DataVault(
+        id=str(uuid.uuid4()),
+        name=data.get('name', '').strip(),
+        description=data.get('description', '').strip(),
+        vault_type=data.get('vault_type', 'general'),
+        data=data.get('data', ''),
+        is_encrypted=data.get('is_encrypted', False) in (True, 'true', '1', 'on'),
+        is_public=data.get('is_public', False) in (True, 'true', '1', 'on'),
+        tags=data.get('tags', '').strip(),
+        created_by=session.get('admin_id'),
+    )
+    db.session.add(vault)
+    db.session.commit()
+    if request.is_json:
+        return jsonify({'success': True, 'id': vault.id})
+    flash('Vault entry created.', 'success')
+    return redirect(url_for('admin.datavault'))
+
+
+@admin_bp.route('/datavault/<vault_id>', methods=['GET'])
+@admin_required
+def view_vault(vault_id):
+    from ..models import DataVault
+    admin = get_current_admin()
+    vault = DataVault.query.get_or_404(vault_id)
+    return render_template('admin/datavault_detail.html', admin=admin, vault=vault)
+
+
+@admin_bp.route('/datavault/<vault_id>/delete', methods=['POST'])
+@admin_required
+def delete_vault(vault_id):
+    from ..models import DataVault
+    vault = DataVault.query.get_or_404(vault_id)
+    db.session.delete(vault)
+    db.session.commit()
+    if request.is_json:
+        return jsonify({'success': True})
+    flash('Vault entry deleted.', 'success')
+    return redirect(url_for('admin.datavault'))
+
+
+@admin_bp.route('/datavault/export-users', methods=['POST'])
+@admin_required
+def export_users_vault():
+    """Export all user data to DataVault."""
+    from ..models import DataVault
+    import json as json_lib
+    users = User.query.all()
+    data = [{
+        'id': u.id, 'username': u.username, 'email': u.email,
+        'phone': u.phone, 'display_name': u.display_name,
+        'is_banned': u.is_banned, 'is_verified': u.is_verified,
+        'created_at': u.created_at.isoformat(),
+    } for u in users]
+    vault = DataVault(
+        id=str(uuid.uuid4()),
+        name='User Export - {}'.format(utcnow().strftime('%Y-%m-%d %H:%M')),
+        description='Full user data export',
+        vault_type='export',
+        data=json_lib.dumps(data),
+        created_by=session.get('admin_id'),
+    )
+    db.session.add(vault)
+    db.session.commit()
+    return jsonify({'success': True, 'id': vault.id, 'count': len(data)})

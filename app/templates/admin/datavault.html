@@ -1,0 +1,153 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}DataVault{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">DataVault</div>
+    <div class="admin-page-sub">Securely store, backup, import and export platform data</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-secondary btn-sm" onclick="exportUsers()">Export Users</button>
+    <button class="btn btn-primary" onclick="document.getElementById('newVaultModal').classList.add('open')">+ New Entry</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="grid-4" style="margin-bottom:20px;">
+  {% set types = ['general','backup','export','import'] %}
+  {% for t in types %}
+  <div class="stat-card">
+    <div class="stat-label">{{ t | capitalize }}</div>
+    <div class="stat-value text-gradient">{{ vaults | selectattr('vault_type','equalto',t) | list | length }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="admin-card">
+  <div class="admin-card-body" style="padding:0;overflow-x:auto;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Name</th><th>Type</th><th>Tags</th><th>Encrypted</th><th>Created</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for vault in vaults %}
+        <tr>
+          <td>
+            <div style="font-weight:600;font-size:0.9rem;">{{ vault.name }}</div>
+            {% if vault.description %}<div style="font-size:0.78rem;color:var(--text-3);">{{ vault.description }}</div>{% endif %}
+          </td>
+          <td><span class="badge badge-primary">{{ vault.vault_type }}</span></td>
+          <td style="font-size:0.8rem;color:var(--text-3);">{{ vault.tags or '—' }}</td>
+          <td>
+            {% if vault.is_encrypted %}
+            <span class="badge badge-success">Yes</span>
+            {% else %}
+            <span class="badge" style="background:var(--surface-3);color:var(--text-3);">No</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.8rem;color:var(--text-3);">{{ vault.created_at.strftime('%b %d, %Y %H:%M') }}</td>
+          <td>
+            <div class="actions">
+              <a href="/admin/datavault/{{ vault.id }}" class="btn btn-secondary btn-sm">View</a>
+              <form method="POST" action="/admin/datavault/{{ vault.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this vault entry?')">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" style="text-align:center;padding:48px;color:var(--text-3);">
+            <div style="font-size:2rem;margin-bottom:10px;opacity:0.3;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+            </div>
+            No vault entries yet. Create one or export user data.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- New Vault Modal -->
+<div class="modal-overlay" id="newVaultModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 class="modal-title">New Vault Entry</h3>
+      <button class="modal-close" onclick="document.getElementById('newVaultModal').classList.remove('open')">&#x2715;</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Name *</label>
+      <input type="text" id="vaultName" class="form-control" placeholder="Entry name..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <input type="text" id="vaultDesc" class="form-control" placeholder="Optional description..." />
+    </div>
+    <div class="grid-2" style="gap:12px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Type</label>
+        <select id="vaultType" class="form-control">
+          <option value="general">General</option>
+          <option value="backup">Backup</option>
+          <option value="export">Export</option>
+          <option value="import">Import</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Tags</label>
+        <input type="text" id="vaultTags" class="form-control" placeholder="tag1, tag2..." />
+      </div>
+    </div>
+    <div class="form-group mt-3">
+      <label class="form-label">Data (JSON or text)</label>
+      <textarea id="vaultData" class="form-control" rows="5" placeholder='{"key": "value"} or any text...' style="-webkit-user-select:text;user-select:text;font-family:monospace;font-size:0.82rem;"></textarea>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:4px;">
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.86rem;">
+        <input type="checkbox" id="vaultEncrypted" style="accent-color:var(--primary);"> Mark as Encrypted
+      </label>
+      <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.86rem;">
+        <input type="checkbox" id="vaultPublic" style="accent-color:var(--primary);"> Public
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('newVaultModal').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" onclick="createVault()">Save Entry</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function createVault() {
+  const data = {
+    name: document.getElementById('vaultName').value.trim(),
+    description: document.getElementById('vaultDesc').value.trim(),
+    vault_type: document.getElementById('vaultType').value,
+    tags: document.getElementById('vaultTags').value.trim(),
+    data: document.getElementById('vaultData').value,
+    is_encrypted: document.getElementById('vaultEncrypted').checked,
+    is_public: document.getElementById('vaultPublic').checked,
+  };
+  if (!data.name) return showToast('Name is required', 'error');
+  const res = await fetch('/admin/datavault/new', {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data)
+  });
+  const json = await res.json();
+  if (json.success) { showToast('Vault entry created!', 'success'); setTimeout(() => location.reload(), 700); }
+  else showToast('Error saving', 'error');
+}
+
+async function exportUsers() {
+  showToast('Exporting users to vault...', 'info');
+  const res = await fetch('/admin/datavault/export-users', { method: 'POST' });
+  const json = await res.json();
+  if (json.success) { showToast('Exported ' + json.count + ' users to vault!', 'success'); setTimeout(() => location.reload(), 900); }
+  else showToast('Export failed', 'error');
+}
+</script>
+{% endblock %}

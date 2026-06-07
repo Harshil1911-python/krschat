@@ -5,65 +5,66 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>{% block title %}{{ site.app_name }}{% endblock %}</title>
-  <meta name="description" content="{% block meta_description %}Khandhars Chat - Secure, fast messaging platform.{% endblock %}" />
-  <link rel="icon" href="{{ site.favicon_url or '/static/images/favicon.ico' }}" type="image/x-icon" />
+  <meta name="description" content="{% block meta_description %}Khandhars Chat - Secure messaging platform.{% endblock %}" />
+  <meta name="robots" content="index, follow" />
+  {% if site.favicon_url %}
+  <link rel="icon" href="{{ site.favicon_url }}" type="image/x-icon" />
+  {% else %}
+  <link rel="icon" href="/static/images/favicon.ico" type="image/x-icon" />
+  {% endif %}
   <link rel="manifest" href="/static/manifest.json" />
   <meta name="theme-color" content="{{ site.primary_color or '#7C3AED' }}" />
-  <!-- CSRF -->
   <meta name="csrf-token" content="{{ csrf_token() if csrf_token is defined else '' }}" />
-  <!-- GA -->
   {% if site.ga_tracking_id %}
   <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.ga_tracking_id }}"></script>
   <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ site.ga_tracking_id }}');</script>
   {% endif %}
-  <style>
-    :root {
-      --primary: {{ site.primary_color or '#7C3AED' }};
-      --primary-dark: #5B21B6;
-      --primary-light: #A78BFA;
-      --accent: #06D6A0;
-      --danger: #EF4444;
-      --warning: #F59E0B;
-      --success: #10B981;
-    }
-  </style>
+  <style>:root{--primary:{{ site.primary_color or '#7C3AED' }};--primary-dark:#5B21B6;--primary-light:#A78BFA;}</style>
   <link rel="stylesheet" href="/static/css/main.css" />
   {% block head %}{% endblock %}
 </head>
 <body>
-  {% if site.announcement %}
-  <div class="announcement-banner announcement-{{ site.announcement.color }}" id="announcementBanner">
-    <span>{{ site.announcement.content }}</span>
-    <button onclick="document.getElementById('announcementBanner').remove()" class="ann-close">×</button>
+
+{% if site.announcement %}
+<div class="announcement-banner announcement-{{ site.announcement.color or 'purple' }}" id="announcementBanner">
+  <span>{{ site.announcement.content }}</span>
+  <button onclick="document.getElementById('announcementBanner').remove()" class="ann-close">&#x2715;</button>
+</div>
+{% endif %}
+
+{% block body %}{% endblock %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div id="toastContainer" class="toast-container">
+  {% for category, message in messages %}
+  <div class="toast toast-{{ category }} show" role="alert">
+    <div class="toast-icon">{% if category == 'success' %}&#x2713;{% elif category == 'error' %}&#x2715;{% else %}i{% endif %}</div>
+    <span>{{ message }}</span>
+    <button onclick="this.parentElement.remove()">&#x2715;</button>
   </div>
-  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
 
-  {% block body %}{% endblock %}
-
-  <!-- Flash Messages -->
-  {% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-  <div id="toastContainer" class="toast-container">
-    {% for category, message in messages %}
-    <div class="toast toast-{{ category }} show" role="alert">
-      <div class="toast-icon">
-        {% if category == 'success' %}✓{% elif category == 'error' %}✕{% else %}ℹ{% endif %}
-      </div>
-      <span>{{ message }}</span>
-      <button onclick="this.parentElement.remove()">×</button>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-  {% endwith %}
-
-  <script src="/static/js/app.js"></script>
-  {% block scripts %}{% endblock %}
-  <script>
-    // Auto-dismiss toasts
-    setTimeout(() => {
-      document.querySelectorAll('.toast').forEach(t => t.classList.remove('show'));
-    }, 5000);
-  </script>
+<script src="/static/js/app.js"></script>
+{% block scripts %}{% endblock %}
+<script>
+// Disable right-click context menu
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+// Disable F12 / DevTools shortcuts
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) || (e.ctrlKey && e.key === 'U')) {
+    e.preventDefault(); return false;
+  }
+});
+// Disable double-click text selection on non-input elements
+document.addEventListener('dblclick', function(e) {
+  if (!['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) e.preventDefault();
+});
+// Auto dismiss toasts
+setTimeout(()=>{document.querySelectorAll('.toast').forEach(t=>t.classList.remove('show'));},5000);
+</script>
 </body>
 </html>

@@ -560,3 +560,38 @@ class QRLoginToken(db.Model):
     status = db.Column(db.String(20), default='pending')  # pending, scanned, confirmed, expired
     expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+
+
+# ─── DataVault ─────────────────────────────────────────────────────────────────
+
+class DataVault(db.Model):
+    __tablename__ = 'data_vault'
+
+    id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.String(500), nullable=True)
+    vault_type = db.Column(db.String(50), default='general')  # general, backup, export, import
+    data = db.Column(db.Text, nullable=True)  # JSON data
+    file_url = db.Column(db.String(500), nullable=True)
+    file_size = db.Column(db.Integer, nullable=True)
+    is_encrypted = db.Column(db.Boolean, default=False)
+    encryption_key_hint = db.Column(db.String(100), nullable=True)
+    created_by = db.Column(db.String(36), nullable=True)
+    is_public = db.Column(db.Boolean, default=False)
+    tags = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'vault_type': self.vault_type,
+            'file_url': self.file_url,
+            'file_size': self.file_size,
+            'is_encrypted': self.is_encrypted,
+            'is_public': self.is_public,
+            'tags': self.tags,
+            'created_at': self.created_at.isoformat(),
+        }
