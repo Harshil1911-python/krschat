@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 KHANDHARS CHAT - Landing / Public Routes
 """
@@ -10,6 +11,9 @@ landing_bp = Blueprint('landing', __name__)
 
 @landing_bp.route('/')
 def index():
+    # Redirect logged-in users directly to chat
+    if current_user.is_authenticated:
+        return redirect(url_for('chat.index'))
     ads = Advertisement.query.filter_by(is_active=True, placement='landing').all()
     return render_template('landing/index.html', ads=ads)
 

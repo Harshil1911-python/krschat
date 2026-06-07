@@ -569,4 +569,37 @@ def track_event():
     db.session.commit()
     return jsonify({'success': True})
 
+# ─── Device Fingerprint ───────────────────────────────────────────────────────
+
+@api_bp.route('/me/device', methods=['POST'])
+@api_login_required
+def register_device():
+    """Register device fingerprint for persistent login."""
+    data = request.get_json(silent=True) or {}
+    device_id = data.get('device_id', '').strip()
+    if device_id:
+        fps = current_user.get_device_fingerprints()
+        if device_id not in fps:
+            fps.append(device_id)
+            if len(fps) > 10:
+                fps = fps[-10:]
+            current_user.device_fingerprints = json.dumps(fps)
+            db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_bp.route('/me/preferences', methods=['POST'])
+@api_login_required
+def update_preferences():
+    """Update user preferences."""
+    data = request.get_json(silent=True) or {}
+    prefs = current_user.get_preferences()
+    allowed = ['notification_sound','chat_wallpaper','font_size',
+               'message_preview','enter_to_send','language','compact_mode']
+    for k in allowed:
+        if k in data:
+            prefs[k] = data[k]
+    current_user.set_preferences(prefs)
+    db.session.commit()
+    return jsonify({'success': True, 'preferences': prefs})
 

@@ -8,11 +8,17 @@ import uuid
 import json
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
-
 db = SQLAlchemy()
-ph = PasswordHasher(time_cost=2, memory_cost=65536, parallelism=2)
+
+# Password hashing - argon2 with fallback to werkzeug
+try:
+    from argon2 import PasswordHasher
+    from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
+    _ph = PasswordHasher(time_cost=2, memory_cost=65536, parallelism=2)
+    _USE_ARGON2 = True
+except ImportError:
+    _USE_ARGON2 = False
+    from werkzeug.security import generate_password_hash, check_password_hash
 
 
 def utcnow():
@@ -90,6 +96,8 @@ class User(UserMixin, db.Model):
     # Push notifications
     push_token = db.Column(db.String(255), nullable=True)
     notifications_enabled = db.Column(db.Boolean, default=True)
+    device_fingerprints = db.Column(db.Text, default='[]')
+    preferences = db.Column(db.Text, default='{}')
 
     # Timestamps
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
@@ -106,16 +114,30 @@ class User(UserMixin, db.Model):
     reports_received = db.relationship('UserReport', foreign_keys='UserReport.reported_id', backref='reported', lazy='dynamic')
 
     def set_password(self, password):
-        self.password_hash = ph.hash(password)
+        if _USE_ARGON2:
+            self.password_hash = _ph.hash(password)
+        else:
+            self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
     def check_password(self, password):
-        try:
-            return ph.verify(self.password_hash, password)
-        except (VerifyMismatchError, VerificationError, InvalidHashError):
+        if not self.password_hash:
             return False
+        if _USE_ARGON2 and self.password_hash.startswith('$argon2'):
+            try:
+                return _ph.verify(self.password_hash, password)
+            except Exception:
+                return False
+        else:
+            try:
+                from werkzeug.security import check_password_hash as _chk
+                return _chk(self.password_hash, password)
+            except Exception:
+                return False
 
     def needs_rehash(self):
-        return ph.check_needs_rehash(self.password_hash)
+        if _USE_ARGON2 and self.password_hash and self.password_hash.startswith('$argon2'):
+            return _ph.check_needs_rehash(self.password_hash)
+        return False
 
     def to_dict(self, include_private=False):
         data = {
@@ -142,8 +164,23 @@ class User(UserMixin, db.Model):
             })
         return data
 
+    def get_device_fingerprints(self):
+        try:
+            return json.loads(self.device_fingerprints or '[]')
+        except Exception:
+            return []
+
+    def get_preferences(self):
+        try:
+            return json.loads(self.preferences or '{}')
+        except Exception:
+            return {}
+
+    def set_preferences(self, prefs):
+        self.preferences = json.dumps(prefs)
+
     def __repr__(self):
-        return f'<User {self.username}>'
+        return '<User {}>'.format(self.username)
 
 
 # ─── User Session ──────────────────────────────────────────────────────────────
@@ -380,12 +417,23 @@ class Admin(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
     def set_password(self, password):
-        self.password_hash = ph.hash(password)
+        if _USE_ARGON2:
+            self.password_hash = _ph.hash(password)
+        else:
+            self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
 
     def check_password(self, password):
+        if not self.password_hash:
+            return False
+        if _USE_ARGON2 and self.password_hash.startswith('$argon2'):
+            try:
+                return _ph.verify(self.password_hash, password)
+            except Exception:
+                return False
         try:
-            return ph.verify(self.password_hash, password)
-        except (VerifyMismatchError, VerificationError, InvalidHashError):
+            from werkzeug.security import check_password_hash as _chk
+            return _chk(self.password_hash, password)
+        except Exception:
             return False
 
 

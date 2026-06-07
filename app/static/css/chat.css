@@ -173,3 +173,71 @@
   font-size: 0.68rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
 }
+
+/* ─── WhatsApp Mobile Overrides ─────────────── */
+@media (max-width: 768px) {
+  .chat-app { position: relative; }
+  .chat-sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; z-index: 80;
+    transform: translateX(-100%); width: 100%; max-width: 100%;
+    transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+  }
+  .chat-sidebar.open { transform: translateX(0); }
+  .mobile-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 70;
+    backdrop-filter: blur(2px);
+  }
+  .mobile-overlay.active { display: block; }
+  .chat-main {
+    width: 100%; position: relative;
+  }
+  /* On mobile, sidebar is the default view */
+  .welcome-screen { display: none !important; }
+  #chatWindow { display: flex !important; }
+  #backBtn { display: flex !important; }
+  .info-panel { position: fixed; width: 100%; right: 0; }
+  .message-bubble { max-width: 82%; }
+  .chat-input-area { padding: 8px 10px; }
+  .chat-messages { padding: 10px; }
+  .chat-header { padding: 0 10px; }
+  .attach-menu { left: 0; bottom: 64px; width: 200px; }
+  .emoji-panel { left: 0; bottom: 64px; width: 100%; border-radius: 16px 16px 0 0; }
+}
+
+/* On mobile load: show sidebar first, hide chat */
+@media (max-width: 768px) {
+  .chat-sidebar { transform: translateX(0) !important; }
+  #chatWindow { display: none !important; }
+  #chatWindow.mobile-chat-open { display: flex !important; }
+  .chat-sidebar.mobile-chat-open { transform: translateX(-100%) !important; }
+}
+
+/* ─── Date Separator ─────────────────────────── */
+.date-separator {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--text-3); font-size: 0.76rem;
+  margin: 14px 0; justify-content: center;
+}
+.date-separator span {
+  background: var(--surface-2); padding: 3px 10px;
+  border-radius: 10px; border: 1px solid var(--border);
+}
+
+/* ─── Attach Menu Icons ───────────────────────── */
+.attach-icon {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* ─── Scroll to bottom ───────────────────────── */
+.scroll-to-bottom {
+  position: absolute; bottom: 76px; right: 16px;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--surface-2); border: 1px solid var(--border-2);
+  color: var(--text-2); cursor: pointer; box-shadow: var(--shadow);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: all 0.2s ease; z-index: 5;
+}
+.scroll-to-bottom.visible { opacity: 1; pointer-events: all; }
+.scroll-to-bottom:hover { background: var(--primary); color: white; border-color: var(--primary); }
