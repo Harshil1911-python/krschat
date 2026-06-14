@@ -1,0 +1,65 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}All Chats{% endblock %}
+
+{% block content %}
+<div class="admin-page-title">All Chats</div>
+<div class="admin-page-sub">View and monitor all conversations on the platform</div>
+
+<div class="admin-card">
+  <div class="admin-card-body" style="padding:0;overflow-x:auto;">
+    <table class="admin-table">
+      <thead>
+        <tr><th>Participants</th><th>Last Message</th><th>Messages</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for chat in chats.items %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              {% if chat.user1 %}
+              <div>
+                <div style="font-weight:600;font-size:0.88rem;">{{ chat.user1.display_name }}</div>
+                <div style="font-size:0.75rem;color:var(--text-3);">@{{ chat.user1.username }}</div>
+              </div>
+              {% endif %}
+              <span style="color:var(--text-3);font-size:0.8rem;">&#8596;</span>
+              {% if chat.user2 %}
+              <div>
+                <div style="font-weight:600;font-size:0.88rem;">{{ chat.user2.display_name }}</div>
+                <div style="font-size:0.75rem;color:var(--text-3);">@{{ chat.user2.username }}</div>
+              </div>
+              {% endif %}
+            </div>
+          </td>
+          <td style="font-size:0.82rem;color:var(--text-3);">
+            {{ chat.last_message_at.strftime('%b %d, %Y %H:%M') if chat.last_message_at else '—' }}
+          </td>
+          <td style="font-size:0.88rem;">{{ chat.messages.count() }}</td>
+          <td>
+            <div class="actions">
+              <a href="/admin/chats/{{ chat.id }}/view" class="btn btn-secondary btn-sm">View Chat</a>
+              {% if chat.user1 %}
+              <a href="/admin/users/{{ chat.user1.id }}" class="btn btn-ghost btn-sm">User 1</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" style="text-align:center;padding:40px;color:var(--text-3);">No chats yet</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if chats.pages > 1 %}
+<div class="pagination" style="margin-top:16px;">
+  {% if chats.has_prev %}<a href="?page={{ chats.prev_num }}" class="page-btn">&#8592;</a>{% endif %}
+  {% for p in chats.iter_pages() %}
+    {% if p %}<a href="?page={{ p }}" class="page-btn {% if p == chats.page %}active{% endif %}">{{ p }}</a>
+    {% else %}<span class="page-btn">&#8230;</span>{% endif %}
+  {% endfor %}
+  {% if chats.has_next %}<a href="?page={{ chats.next_num }}" class="page-btn">&#8594;</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

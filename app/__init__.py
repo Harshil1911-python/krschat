@@ -266,6 +266,37 @@ def _seed_defaults(app):
             ('smtp_server', app.config.get('MAIL_SERVER', ''), 'string', 'smtp', 'SMTP Server'),
             ('smtp_port', str(app.config.get('MAIL_PORT', 587)), 'int', 'smtp', 'SMTP Port'),
             ('smtp_username', app.config.get('MAIL_USERNAME', ''), 'string', 'smtp', 'SMTP Username'),
+
+            # Chat customizations
+            ('max_message_length', '5000', 'int', 'chat', 'Max Message Length (chars)'),
+            ('max_file_size_mb', '50', 'int', 'chat', 'Max File Upload Size (MB)'),
+            ('max_group_members', '256', 'int', 'chat', 'Max Group Members'),
+            ('enable_voice_calls', 'true', 'bool', 'chat', 'Enable Voice Calls'),
+            ('enable_video_calls', 'true', 'bool', 'chat', 'Enable Video Calls'),
+            ('enable_voice_notes', 'true', 'bool', 'chat', 'Enable Voice Notes'),
+            ('enable_file_sharing', 'true', 'bool', 'chat', 'Enable File Sharing'),
+            ('enable_message_reactions', 'true', 'bool', 'chat', 'Enable Message Reactions'),
+            ('enable_message_editing', 'true', 'bool', 'chat', 'Enable Message Editing'),
+            ('enable_message_deletion', 'true', 'bool', 'chat', 'Enable Message Deletion'),
+            ('enable_read_receipts', 'true', 'bool', 'chat', 'Enable Read Receipts Globally'),
+            ('enable_typing_indicators', 'true', 'bool', 'chat', 'Enable Typing Indicators'),
+            ('message_retention_days', '0', 'int', 'chat', 'Message Retention (0 = forever)'),
+            ('default_chat_wallpaper', '', 'string', 'chat', 'Default Chat Wallpaper URL'),
+
+            # User defaults
+            ('default_theme', 'light', 'string', 'users', 'Default Theme for New Users'),
+            ('default_font_size', 'medium', 'string', 'users', 'Default Font Size'),
+            ('default_enter_to_send', 'true', 'bool', 'users', 'Default Enter-to-Send'),
+            ('require_email_verification', 'false', 'bool', 'users', 'Require Email Verification'),
+            ('allow_username_change', 'true', 'bool', 'users', 'Allow Username Changes'),
+            ('allow_avatar_upload', 'true', 'bool', 'users', 'Allow Avatar Uploads'),
+            ('min_username_length', '3', 'int', 'users', 'Minimum Username Length'),
+            ('min_password_length', '8', 'int', 'users', 'Minimum Password Length'),
+
+            # Branding extras
+            ('app_description', 'Secure, fast messaging platform.', 'string', 'branding', 'App Description'),
+            ('app_tagline', 'Connect Without Limits', 'string', 'branding', 'App Tagline'),
+            ('login_background_url', '', 'string', 'branding', 'Login Page Background URL'),
         ]
 
         for key, value, vtype, category, label in defaults:

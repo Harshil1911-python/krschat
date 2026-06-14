@@ -350,6 +350,47 @@
 <div id="reactionPicker" class="hidden" style="position:fixed;z-index:500;background:var(--surface-2);border:1px solid var(--border-2);border-radius:24px;padding:6px 8px;display:flex;gap:3px;box-shadow:var(--shadow-lg);">
 </div>
 
+
+<!-- Call Modal -->
+<div class="modal-overlay hidden" id="callModal">
+  <div class="modal" style="max-width:380px;text-align:center;padding:32px 24px;">
+    <div id="callVideoArea" class="hidden" style="margin-bottom:16px;">
+      <div class="video-grid" style="display:grid;gap:8px;">
+        <div style="position:relative;background:var(--bg-3);border-radius:12px;overflow:hidden;aspect-ratio:16/9;">
+          <video id="callRemoteVideo" autoplay playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+        </div>
+        <div style="position:relative;background:var(--bg-3);border-radius:12px;overflow:hidden;aspect-ratio:16/9;max-width:120px;margin-left:auto;">
+          <video id="callLocalVideo" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+        </div>
+      </div>
+    </div>
+
+    <div id="callAvatarWrap" style="margin-bottom:16px;">
+      <img id="callAvatar" src="/static/images/default-avatar.png" class="avatar avatar-xxl" style="margin:0 auto;" onerror="this.src='/static/images/default-avatar.png'" />
+    </div>
+
+    <audio id="callRemoteAudio" autoplay style="display:none;"></audio>
+
+    <div id="callName" style="font-family:var(--font-display);font-size:1.2rem;margin-bottom:4px;color:var(--text);"></div>
+    <div id="callStatus" style="color:var(--text-3);font-size:0.88rem;margin-bottom:24px;"></div>
+
+    <div style="display:flex;gap:14px;justify-content:center;">
+      <button id="acceptCallBtn" class="btn-icon" style="width:54px;height:54px;background:var(--success);color:white;" onclick="acceptCall()" title="Accept">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.59a16 16 0 0 0 5.5 5.5l1.95-1.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </button>
+      <button id="muteBtn" class="btn-icon" style="width:54px;height:54px;background:var(--surface-3);color:var(--text);" onclick="toggleMute()" title="Mute">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+      <button id="videoToggleBtn" class="btn-icon hidden" style="width:54px;height:54px;background:var(--surface-3);color:var(--text);" onclick="toggleVideo()" title="Toggle Video">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+      </button>
+      <button class="btn-icon" style="width:54px;height:54px;background:var(--danger);color:white;" onclick="rejectCall()" title="End Call">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate(135deg);"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.18 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.59a16 16 0 0 0 5.5 5.5l1.95-1.94a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>

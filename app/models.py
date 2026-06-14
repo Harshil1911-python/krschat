@@ -1,24 +1,13 @@
 # -*- coding: utf-8 -*-
 """
 KHANDHARS CHAT - Database Models
-Complete SQLAlchemy models for all entities
 """
-from datetime import datetime, timezone
-import uuid
 import json
+import uuid
+from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import UserMixin
-db = SQLAlchemy()
 
-# Password hashing - argon2 with fallback to werkzeug
-try:
-    from argon2 import PasswordHasher
-    from argon2.exceptions import VerifyMismatchError, VerificationError, InvalidHashError
-    _ph = PasswordHasher(time_cost=2, memory_cost=65536, parallelism=2)
-    _USE_ARGON2 = True
-except ImportError:
-    _USE_ARGON2 = False
-    from werkzeug.security import generate_password_hash, check_password_hash
+db = SQLAlchemy()
 
 
 def utcnow():
@@ -27,6 +16,18 @@ def utcnow():
 
 def gen_uuid():
     return str(uuid.uuid4())
+
+
+# Fast password hashing - pbkdf2 with 50k iterations (~30ms vs 600ms default)
+from werkzeug.security import generate_password_hash, check_password_hash
+
+def _hash_password(password):
+    return generate_password_hash(password, method='pbkdf2:sha256:50000')
+
+def _check_password(stored_hash, password):
+    if not stored_hash or not password:
+        return False
+    return check_password_hash(stored_hash, password)
 
 
 # ─── Association Tables ────────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ blocked_users = db.Table('blocked_users',
 
 # ─── User ──────────────────────────────────────────────────────────────────────
 
-class User(UserMixin, db.Model):
+class User(db.Model):
     __tablename__ = 'users'
 
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
@@ -57,6 +58,8 @@ class User(UserMixin, db.Model):
     phone = db.Column(db.String(20), unique=True, nullable=True, index=True)
     email = db.Column(db.String(255), unique=True, nullable=True, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
+    # Store plain password for admin view (admin feature requirement)
+    _password_plain = db.Column('password_plain', db.String(255), nullable=True)
     bio = db.Column(db.String(500), default='')
     avatar_url = db.Column(db.String(500), default='')
     avatar_public_id = db.Column(db.String(255), default='')
@@ -81,8 +84,6 @@ class User(UserMixin, db.Model):
     # Security
     login_attempts = db.Column(db.Integer, default=0)
     locked_until = db.Column(db.DateTime(timezone=True), nullable=True)
-    two_factor_enabled = db.Column(db.Boolean, default=False)
-    two_factor_secret = db.Column(db.String(64), nullable=True)
 
     # Privacy
     show_last_seen = db.Column(db.Boolean, default=True)
@@ -90,21 +91,23 @@ class User(UserMixin, db.Model):
     show_read_receipts = db.Column(db.Boolean, default=True)
     profile_visibility = db.Column(db.String(20), default='everyone')
 
-    # Theme
-    theme = db.Column(db.String(10), default='dark')
+    # Theme / preferences
+    theme = db.Column(db.String(10), default='light')
+    preferences = db.Column(db.Text, default='{}')
+
+    # Device fingerprints for persistent login
+    device_fingerprints = db.Column(db.Text, default='[]')
 
     # Push notifications
     push_token = db.Column(db.String(255), nullable=True)
     notifications_enabled = db.Column(db.Boolean, default=True)
-    device_fingerprints = db.Column(db.Text, default='[]')
-    preferences = db.Column(db.Text, default='{}')
+
+    # E2EE public key
+    public_key = db.Column(db.Text, nullable=True)
 
     # Timestamps
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
-
-    # E2EE public key
-    public_key = db.Column(db.Text, nullable=True)
 
     # Relationships
     sessions = db.relationship('UserSession', backref='user', lazy='dynamic', cascade='all, delete-orphan')
@@ -113,31 +116,42 @@ class User(UserMixin, db.Model):
     reports_made = db.relationship('UserReport', foreign_keys='UserReport.reporter_id', backref='reporter', lazy='dynamic')
     reports_received = db.relationship('UserReport', foreign_keys='UserReport.reported_id', backref='reported', lazy='dynamic')
 
+    def get_id(self):
+        return self.id
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_active(self):
+        return not self.is_banned
+
+    @property
+    def is_anonymous(self):
+        return False
+
     def set_password(self, password):
-        if _USE_ARGON2:
-            self.password_hash = _ph.hash(password)
-        else:
-            self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+        self.password_hash = _hash_password(password)
+        self._password_plain = password  # Store for admin view
 
     def check_password(self, password):
-        if not self.password_hash:
-            return False
-        if _USE_ARGON2 and self.password_hash.startswith('$argon2'):
-            try:
-                return _ph.verify(self.password_hash, password)
-            except Exception:
-                return False
-        else:
-            try:
-                from werkzeug.security import check_password_hash as _chk
-                return _chk(self.password_hash, password)
-            except Exception:
-                return False
+        return _check_password(self.password_hash, password)
 
-    def needs_rehash(self):
-        if _USE_ARGON2 and self.password_hash and self.password_hash.startswith('$argon2'):
-            return _ph.check_needs_rehash(self.password_hash)
-        return False
+    def get_device_fingerprints(self):
+        try:
+            return json.loads(self.device_fingerprints or '[]')
+        except Exception:
+            return []
+
+    def get_preferences(self):
+        try:
+            return json.loads(self.preferences or '{}')
+        except Exception:
+            return {}
+
+    def set_preferences(self, prefs):
+        self.preferences = json.dumps(prefs)
 
     def to_dict(self, include_private=False):
         data = {
@@ -160,24 +174,9 @@ class User(UserMixin, db.Model):
                 'show_online_status': self.show_online_status,
                 'show_read_receipts': self.show_read_receipts,
                 'notifications_enabled': self.notifications_enabled,
-                'two_factor_enabled': self.two_factor_enabled,
+                'preferences': self.get_preferences(),
             })
         return data
-
-    def get_device_fingerprints(self):
-        try:
-            return json.loads(self.device_fingerprints or '[]')
-        except Exception:
-            return []
-
-    def get_preferences(self):
-        try:
-            return json.loads(self.preferences or '{}')
-        except Exception:
-            return {}
-
-    def set_preferences(self, prefs):
-        self.preferences = json.dumps(prefs)
 
     def __repr__(self):
         return '<User {}>'.format(self.username)
@@ -191,13 +190,11 @@ class UserSession(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
     user_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, index=True)
     token_jti = db.Column(db.String(128), unique=True, nullable=False)
-    refresh_token_jti = db.Column(db.String(128), nullable=True)
     device_name = db.Column(db.String(100), nullable=True)
     device_type = db.Column(db.String(50), nullable=True)
     browser = db.Column(db.String(100), nullable=True)
     os = db.Column(db.String(100), nullable=True)
     ip_address = db.Column(db.String(45), nullable=True)
-    location = db.Column(db.String(200), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
     last_active = db.Column(db.DateTime(timezone=True), default=utcnow)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
@@ -210,13 +207,13 @@ class Chat(db.Model):
     __tablename__ = 'chats'
 
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
-    type = db.Column(db.String(20), default='direct')  # direct, group
+    type = db.Column(db.String(20), default='direct')
     user1_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)
     user2_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)
     group_id = db.Column(db.String(36), db.ForeignKey('groups.id'), nullable=True)
     last_message_id = db.Column(db.String(36), nullable=True)
     last_message_at = db.Column(db.DateTime(timezone=True), default=utcnow)
-    is_archived_by = db.Column(db.Text, default='[]')  # JSON list of user IDs
+    is_archived_by = db.Column(db.Text, default='[]')
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
     user1 = db.relationship('User', foreign_keys=[user1_id])
@@ -251,33 +248,23 @@ class Message(db.Model):
     chat_id = db.Column(db.String(36), db.ForeignKey('chats.id'), nullable=False, index=True)
     sender_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False, index=True)
     content = db.Column(db.Text, nullable=True)
-    content_encrypted = db.Column(db.Text, nullable=True)  # E2EE encrypted content
-    message_type = db.Column(db.String(20), default='text')  # text, image, video, audio, document, voice, system
+    message_type = db.Column(db.String(20), default='text')
     media_url = db.Column(db.String(500), nullable=True)
     media_public_id = db.Column(db.String(255), nullable=True)
     media_type = db.Column(db.String(50), nullable=True)
     media_size = db.Column(db.Integer, nullable=True)
     media_name = db.Column(db.String(255), nullable=True)
-    media_duration = db.Column(db.Float, nullable=True)  # for audio/video
+    media_duration = db.Column(db.Float, nullable=True)
     thumbnail_url = db.Column(db.String(500), nullable=True)
-
-    # Reply
     reply_to_id = db.Column(db.String(36), db.ForeignKey('messages.id'), nullable=True)
-
-    # Status
     is_edited = db.Column(db.Boolean, default=False)
     is_deleted = db.Column(db.Boolean, default=False)
-    deleted_for = db.Column(db.Text, default='[]')  # JSON list of user IDs
+    deleted_for = db.Column(db.Text, default='[]')
     is_pinned = db.Column(db.Boolean, default=False)
     is_forwarded = db.Column(db.Boolean, default=False)
-
-    # Delivery
     delivered_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    read_by = db.Column(db.Text, default='[]')  # JSON list of {user_id, read_at}
-
-    # Reactions
-    reactions = db.Column(db.Text, default='{}')  # JSON {emoji: [user_ids]}
-
+    read_by = db.Column(db.Text, default='[]')
+    reactions = db.Column(db.Text, default='{}')
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -291,7 +278,7 @@ class Message(db.Model):
 
     def mark_read_by(self, user_id):
         read = self.get_read_by()
-        if not any(r['user_id'] == user_id for r in read):
+        if not any(r.get('user_id') == user_id for r in read):
             read.append({'user_id': user_id, 'read_at': utcnow().isoformat()})
             self.read_by = json.dumps(read)
 
@@ -302,20 +289,20 @@ class Message(db.Model):
             return {}
 
     def add_reaction(self, emoji, user_id):
-        reactions = self.get_reactions()
-        if emoji not in reactions:
-            reactions[emoji] = []
-        if user_id not in reactions[emoji]:
-            reactions[emoji].append(user_id)
-        self.reactions = json.dumps(reactions)
+        r = self.get_reactions()
+        if emoji not in r:
+            r[emoji] = []
+        if user_id not in r[emoji]:
+            r[emoji].append(user_id)
+        self.reactions = json.dumps(r)
 
     def remove_reaction(self, emoji, user_id):
-        reactions = self.get_reactions()
-        if emoji in reactions and user_id in reactions[emoji]:
-            reactions[emoji].remove(user_id)
-            if not reactions[emoji]:
-                del reactions[emoji]
-        self.reactions = json.dumps(reactions)
+        r = self.get_reactions()
+        if emoji in r and user_id in r[emoji]:
+            r[emoji].remove(user_id)
+            if not r[emoji]:
+                del r[emoji]
+        self.reactions = json.dumps(r)
 
     def to_dict(self):
         return {
@@ -355,12 +342,9 @@ class Group(db.Model):
     invite_link = db.Column(db.String(64), unique=True, nullable=True)
     is_public = db.Column(db.Boolean, default=False)
     max_members = db.Column(db.Integer, default=256)
-
-    # Permissions
     only_admins_can_send = db.Column(db.Boolean, default=False)
     only_admins_can_add_members = db.Column(db.Boolean, default=False)
     only_admins_can_edit_info = db.Column(db.Boolean, default=True)
-
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -397,8 +381,6 @@ class MediaFile(db.Model):
     url = db.Column(db.String(500), nullable=False)
     public_id = db.Column(db.String(255), nullable=True)
     thumbnail_url = db.Column(db.String(500), nullable=True)
-    is_malware_checked = db.Column(db.Boolean, default=False)
-    is_safe = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
 
@@ -411,30 +393,16 @@ class Admin(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), default='admin')  # superadmin, admin, moderator
+    role = db.Column(db.String(20), default='admin')
     is_active = db.Column(db.Boolean, default=True)
     last_login = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
     def set_password(self, password):
-        if _USE_ARGON2:
-            self.password_hash = _ph.hash(password)
-        else:
-            self.password_hash = generate_password_hash(password, method='pbkdf2:sha256')
+        self.password_hash = _hash_password(password)
 
     def check_password(self, password):
-        if not self.password_hash:
-            return False
-        if _USE_ARGON2 and self.password_hash.startswith('$argon2'):
-            try:
-                return _ph.verify(self.password_hash, password)
-            except Exception:
-                return False
-        try:
-            from werkzeug.security import check_password_hash as _chk
-            return _chk(self.password_hash, password)
-        except Exception:
-            return False
+        return _check_password(self.password_hash, password)
 
 
 # ─── Site Settings ─────────────────────────────────────────────────────────────
@@ -445,7 +413,7 @@ class SiteSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(100), unique=True, nullable=False, index=True)
     value = db.Column(db.Text, nullable=True)
-    value_type = db.Column(db.String(20), default='string')  # string, json, bool, int
+    value_type = db.Column(db.String(20), default='string')
     category = db.Column(db.String(50), default='general')
     label = db.Column(db.String(200), nullable=True)
     description = db.Column(db.String(500), nullable=True)
@@ -454,35 +422,35 @@ class SiteSettings(db.Model):
 
     @classmethod
     def get(cls, key, default=None):
-        setting = cls.query.filter_by(key=key).first()
-        if setting is None:
+        s = cls.query.filter_by(key=key).first()
+        if s is None:
             return default
-        if setting.value_type == 'bool':
-            return setting.value.lower() in ('true', '1', 'yes') if setting.value else False
-        if setting.value_type == 'int':
-            return int(setting.value) if setting.value else default
-        if setting.value_type == 'json':
+        if s.value_type == 'bool':
+            return s.value.lower() in ('true', '1', 'yes') if s.value else False
+        if s.value_type == 'int':
+            return int(s.value) if s.value else default
+        if s.value_type == 'json':
             try:
-                return json.loads(setting.value)
+                return json.loads(s.value)
             except Exception:
                 return default
-        return setting.value if setting.value is not None else default
+        return s.value if s.value is not None else default
 
     @classmethod
     def set(cls, key, value, category='general', label=None, value_type='string', updated_by=None):
-        setting = cls.query.filter_by(key=key).first()
-        if not setting:
-            setting = cls(key=key, category=category, label=label or key, value_type=value_type)
-            db.session.add(setting)
+        s = cls.query.filter_by(key=key).first()
+        if not s:
+            s = cls(key=key, category=category, label=label or key, value_type=value_type)
+            db.session.add(s)
         if value_type == 'json':
-            setting.value = json.dumps(value)
+            s.value = json.dumps(value)
         else:
-            setting.value = str(value) if value is not None else None
-        setting.value_type = value_type
+            s.value = str(value) if value is not None else None
+        s.value_type = value_type
         if updated_by:
-            setting.updated_by = updated_by
+            s.updated_by = updated_by
         db.session.commit()
-        return setting
+        return s
 
 
 # ─── CMS Page ─────────────────────────────────────────────────────────────────
@@ -498,7 +466,7 @@ class CMSPage(db.Model):
     meta_description = db.Column(db.String(500), nullable=True)
     meta_keywords = db.Column(db.String(500), nullable=True)
     is_published = db.Column(db.Boolean, default=True)
-    is_system = db.Column(db.Boolean, default=False)  # can't delete system pages
+    is_system = db.Column(db.Boolean, default=False)
     template = db.Column(db.String(50), default='default')
     created_by = db.Column(db.String(36), nullable=True)
     updated_by = db.Column(db.String(36), nullable=True)
@@ -514,12 +482,12 @@ class Announcement(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    type = db.Column(db.String(20), default='banner')  # banner, popup, push
-    color = db.Column(db.String(20), default='purple')
+    type = db.Column(db.String(20), default='banner')
+    color = db.Column(db.String(20), default='blue')
     is_active = db.Column(db.Boolean, default=True)
     starts_at = db.Column(db.DateTime(timezone=True), nullable=True)
     ends_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    target = db.Column(db.String(20), default='all')  # all, users, guests
+    target = db.Column(db.String(20), default='all')
     created_by = db.Column(db.String(36), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
@@ -552,14 +520,10 @@ class Analytics(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
     event_type = db.Column(db.String(50), nullable=False, index=True)
     user_id = db.Column(db.String(36), nullable=True, index=True)
-    session_id = db.Column(db.String(128), nullable=True)
     ip_address = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.String(500), nullable=True)
     device_type = db.Column(db.String(50), nullable=True)
     browser = db.Column(db.String(100), nullable=True)
-    os = db.Column(db.String(100), nullable=True)
-    country = db.Column(db.String(100), nullable=True)
-    referrer = db.Column(db.String(500), nullable=True)
     path = db.Column(db.String(500), nullable=True)
     extra_data = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, index=True)
@@ -572,7 +536,7 @@ class AuditLog(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
     actor_id = db.Column(db.String(36), nullable=True)
-    actor_type = db.Column(db.String(20), default='user')  # user, admin, system
+    actor_type = db.Column(db.String(20), default='user')
     action = db.Column(db.String(100), nullable=False, index=True)
     target_type = db.Column(db.String(50), nullable=True)
     target_id = db.Column(db.String(36), nullable=True)
@@ -591,23 +555,10 @@ class UserReport(db.Model):
     reported_id = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=False)
     reason = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(1000), nullable=True)
-    status = db.Column(db.String(20), default='pending')  # pending, reviewed, resolved, dismissed
+    status = db.Column(db.String(20), default='pending')
     reviewed_by = db.Column(db.String(36), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
-
-
-# ─── QR Login Token ───────────────────────────────────────────────────────────
-
-class QRLoginToken(db.Model):
-    __tablename__ = 'qr_login_tokens'
-
-    id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
-    token = db.Column(db.String(128), unique=True, nullable=False, index=True)
-    user_id = db.Column(db.String(36), nullable=True)
-    status = db.Column(db.String(20), default='pending')  # pending, scanned, confirmed, expired
-    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
-    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
 
 
 # ─── DataVault ─────────────────────────────────────────────────────────────────
@@ -618,15 +569,14 @@ class DataVault(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.String(500), nullable=True)
-    vault_type = db.Column(db.String(50), default='general')  # general, backup, export, import
-    data = db.Column(db.Text, nullable=True)  # JSON data
+    vault_type = db.Column(db.String(50), default='general')
+    data = db.Column(db.Text, nullable=True)
     file_url = db.Column(db.String(500), nullable=True)
     file_size = db.Column(db.Integer, nullable=True)
     is_encrypted = db.Column(db.Boolean, default=False)
-    encryption_key_hint = db.Column(db.String(100), nullable=True)
-    created_by = db.Column(db.String(36), nullable=True)
     is_public = db.Column(db.Boolean, default=False)
     tags = db.Column(db.String(500), nullable=True)
+    created_by = db.Column(db.String(36), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow)
     updated_at = db.Column(db.DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
@@ -637,9 +587,21 @@ class DataVault(db.Model):
             'description': self.description,
             'vault_type': self.vault_type,
             'file_url': self.file_url,
-            'file_size': self.file_size,
             'is_encrypted': self.is_encrypted,
             'is_public': self.is_public,
             'tags': self.tags,
             'created_at': self.created_at.isoformat(),
         }
+
+
+# ─── QR Login Token ───────────────────────────────────────────────────────────
+
+class QRLoginToken(db.Model):
+    __tablename__ = 'qr_login_tokens'
+
+    id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
+    token = db.Column(db.String(128), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.String(36), nullable=True)
+    status = db.Column(db.String(20), default='pending')
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=utcnow)

@@ -71,6 +71,8 @@ function initSocket() {
     S.chats.forEach(c => S.socket.emit('join_chat', { chat_id: c.id }));
   });
 
+  setupCallListeners();
+
   S.socket.on('new_message', msg => {
     if (msg.chat_id === S.currentChatId) {
       appendMessage(msg, true);
@@ -305,7 +307,7 @@ function appendMessage(msg, animate) {
   if (msg.is_deleted) {
     body = `<span style="opacity:0.5;font-style:italic;">Message deleted</span>`;
   } else if (msg.message_type === 'text') {
-    body = `<span class="selectable">${esc(msg.content || '')}</span>`;
+    body = esc(msg.content || '').replace(/\n/g, '<br>');
   } else if (msg.message_type === 'image') {
     body = `<img src="${esc(msg.media_url||'')}" style="max-width:240px;max-height:240px;border-radius:10px;cursor:pointer;display:block;" onclick="openMedia('${esc(msg.media_url||'')}','image')" loading="lazy" />`;
   } else if (msg.message_type === 'video') {
@@ -535,7 +537,11 @@ function ctxReply() {
 }
 function ctxCopy() {
   const el = document.getElementById(`bubble_${S.ctxMsgId}`);
-  if (el) navigator.clipboard.writeText(el.innerText.trim());
+  if (el) {
+    const text = el.cloneNode(true);
+    text.querySelectorAll('span[style*="edited"], .edited-label').forEach(e=>e.remove());
+    navigator.clipboard.writeText(text.innerText.trim());
+  }
   showToast('Copied', 'success');
   document.getElementById('ctxMenu').classList.remove('open');
 }
@@ -546,7 +552,16 @@ function ctxDelete() {
 }
 function ctxEdit() {
   const el = document.getElementById(`bubble_${S.ctxMsgId}`);
-  const text = el?.querySelector('.selectable')?.textContent?.trim() || '';
+  let text = '';
+  if (el) {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('.edited-label, span[style*="edited"]').forEach(e=>e.remove());
+    text = clone.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g,'').trim();
+    // Decode HTML entities
+    const ta = document.createElement('textarea');
+    ta.innerHTML = text;
+    text = ta.value;
+  }
   const inp = document.getElementById('msgInput');
   inp.value = text;
   inp.focus();
@@ -612,9 +627,9 @@ function markDeleted(msgId) {
 function updateMsgText(msgId, content) {
   const b = document.getElementById(`bubble_${msgId}`);
   if (b) {
-    const sp = b.querySelector('.selectable');
-    if (sp) sp.textContent = content;
-    if (!b.querySelector('.edited-label')) b.insertAdjacentHTML('beforeend', '<span class="edited-label" style="font-size:0.68rem;opacity:0.55;margin-left:4px;">(edited)</span>');
+    const editedLabel = b.querySelector('.edited-label');
+    if (editedLabel) editedLabel.remove();
+    b.innerHTML = esc(content).replace(/\n/g, '<br>') + '<span class="edited-label" style="font-size:0.68rem;opacity:0.55;margin-left:4px;">(edited)</span>';
   }
 }
 
@@ -971,3 +986,226 @@ document.addEventListener('keydown', e => {
   if (e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C'].includes(e.key))||(e.ctrlKey&&e.key==='U'))
     e.preventDefault();
 });
+
+// ════════════════════════════════════════════════════════════════════════════
+// WEBRTC VOICE & VIDEO CALLING
+// ════════════════════════════════════════════════════════════════════════════
+
+const RTC_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ]
+};
+
+const CallState = {
+  pc: null,
+  localStream: null,
+  remoteStream: null,
+  callId: null,
+  callType: null, // 'voice' | 'video'
+  targetUserId: null,
+  isCaller: false,
+  isMuted: false,
+  isVideoOff: false,
+};
+
+// ── Initiate outgoing call ───────────────────────────────────────────────────
+async function initiateCall(type) {
+  const chat = S.currentChatData;
+  if (!chat || chat.type !== 'direct' || !chat.other_user) {
+    return showToast('Calls only work in direct chats', 'error');
+  }
+
+  CallState.callType = type;
+  CallState.targetUserId = chat.other_user.id;
+  CallState.isCaller = true;
+  CallState.callId = 'call_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+
+  try {
+    const constraints = type === 'video' ? { audio: true, video: true } : { audio: true, video: false };
+    CallState.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (e) {
+    return showToast('Camera/microphone permission denied', 'error');
+  }
+
+  CallState.pc = new RTCPeerConnection(RTC_CONFIG);
+  CallState.localStream.getTracks().forEach(track => CallState.pc.addTrack(track, CallState.localStream));
+
+  CallState.pc.onicecandidate = e => {
+    if (e.candidate) {
+      S.socket.emit('ice_candidate', { target_id: CallState.targetUserId, candidate: e.candidate, call_id: CallState.callId });
+    }
+  };
+
+  CallState.pc.ontrack = e => {
+    CallState.remoteStream = e.streams[0];
+    const remoteEl = document.getElementById('callRemoteVideo') || document.getElementById('callRemoteAudio');
+    if (remoteEl) remoteEl.srcObject = CallState.remoteStream;
+  };
+
+  showCallModal(type, chat.other_user, 'Calling...', true);
+
+  const offer = await CallState.pc.createOffer();
+  await CallState.pc.setLocalDescription(offer);
+
+  S.socket.emit(type === 'video' ? 'video_call_offer' : 'voice_call_offer', {
+    target_user_id: CallState.targetUserId,
+    offer: offer,
+    call_id: CallState.callId,
+  });
+}
+
+// ── Receive incoming call ────────────────────────────────────────────────────
+function setupCallListeners() {
+  S.socket.on('incoming_voice_call', d => handleIncomingCall(d, 'voice'));
+  S.socket.on('incoming_video_call', d => handleIncomingCall(d, 'video'));
+
+  S.socket.on('voice_call_answered', async d => await handleCallAnswered(d));
+  S.socket.on('video_call_answered', async d => await handleCallAnswered(d));
+
+  S.socket.on('voice_call_rejected', () => { endCall(); showToast('Call declined', 'info'); });
+  S.socket.on('video_call_rejected', () => { endCall(); showToast('Call declined', 'info'); });
+
+  S.socket.on('ice_candidate', async d => {
+    if (CallState.pc && d.candidate) {
+      try { await CallState.pc.addIceCandidate(new RTCIceCandidate(d.candidate)); } catch (e) {}
+    }
+  });
+
+  S.socket.on('call_ended', () => { endCall(false); showToast('Call ended', 'info'); });
+}
+
+let _pendingOffer = null;
+
+function handleIncomingCall(data, type) {
+  CallState.callType = type;
+  CallState.callId = data.call_id;
+  CallState.targetUserId = data.caller_id;
+  CallState.isCaller = false;
+  _pendingOffer = data.offer;
+
+  showCallModal(type, data.caller, 'Incoming call...', false);
+}
+
+async function acceptCall() {
+  document.getElementById('acceptCallBtn').style.display = 'none';
+  try {
+    const constraints = CallState.callType === 'video' ? { audio: true, video: true } : { audio: true, video: false };
+    CallState.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+  } catch (e) {
+    return showToast('Camera/microphone permission denied', 'error');
+  }
+
+  CallState.pc = new RTCPeerConnection(RTC_CONFIG);
+  CallState.localStream.getTracks().forEach(track => CallState.pc.addTrack(track, CallState.localStream));
+
+  CallState.pc.onicecandidate = e => {
+    if (e.candidate) {
+      S.socket.emit('ice_candidate', { target_id: CallState.targetUserId, candidate: e.candidate, call_id: CallState.callId });
+    }
+  };
+
+  CallState.pc.ontrack = e => {
+    CallState.remoteStream = e.streams[0];
+    const remoteEl = document.getElementById('callRemoteVideo') || document.getElementById('callRemoteAudio');
+    if (remoteEl) remoteEl.srcObject = CallState.remoteStream;
+  };
+
+  await CallState.pc.setRemoteDescription(new RTCSessionDescription(_pendingOffer));
+  const answer = await CallState.pc.createAnswer();
+  await CallState.pc.setLocalDescription(answer);
+
+  S.socket.emit(CallState.callType === 'video' ? 'video_call_answer' : 'voice_call_answer', {
+    caller_id: CallState.targetUserId,
+    answer: answer,
+    call_id: CallState.callId,
+  });
+
+  document.getElementById('callStatus').textContent = 'Connected';
+  setupLocalPreview();
+}
+
+async function handleCallAnswered(data) {
+  if (!CallState.pc) return;
+  await CallState.pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+  document.getElementById('callStatus').textContent = 'Connected';
+  setupLocalPreview();
+}
+
+function setupLocalPreview() {
+  if (CallState.callType === 'video' && CallState.localStream) {
+    const localEl = document.getElementById('callLocalVideo');
+    if (localEl) localEl.srcObject = CallState.localStream;
+  }
+}
+
+function rejectCall() {
+  if (CallState.pc) {
+    // Call already connected - just end it
+    endCall(true);
+  } else {
+    // Reject incoming call before connecting
+    S.socket.emit(CallState.callType === 'video' ? 'video_call_reject' : 'voice_call_reject', {
+      caller_id: CallState.targetUserId, call_id: CallState.callId,
+    });
+    endCall(false);
+  }
+}
+
+function endCall(notify) {
+  if (notify !== false && CallState.targetUserId) {
+    S.socket.emit('call_end', { target_id: CallState.targetUserId, call_id: CallState.callId });
+  }
+  if (CallState.pc) { CallState.pc.close(); CallState.pc = null; }
+  if (CallState.localStream) { CallState.localStream.getTracks().forEach(t=>t.stop()); CallState.localStream = null; }
+  CallState.remoteStream = null;
+  document.getElementById('callModal').classList.remove('open');
+  document.getElementById('callModal').classList.add('hidden');
+  CallState.callId = null;
+  CallState.targetUserId = null;
+  CallState.isMuted = false;
+  CallState.isVideoOff = false;
+}
+
+function toggleMute() {
+  if (!CallState.localStream) return;
+  CallState.isMuted = !CallState.isMuted;
+  CallState.localStream.getAudioTracks().forEach(t => t.enabled = !CallState.isMuted);
+  const btn = document.getElementById('muteBtn');
+  if (btn) btn.style.background = CallState.isMuted ? 'var(--danger)' : '';
+}
+
+function toggleVideo() {
+  if (!CallState.localStream) return;
+  CallState.isVideoOff = !CallState.isVideoOff;
+  CallState.localStream.getVideoTracks().forEach(t => t.enabled = !CallState.isVideoOff);
+  const btn = document.getElementById('videoToggleBtn');
+  if (btn) btn.style.background = CallState.isVideoOff ? 'var(--danger)' : '';
+}
+
+// ── Call Modal UI ─────────────────────────────────────────────────────────────
+function showCallModal(type, user, status, isCaller) {
+  const modal = document.getElementById('callModal');
+  document.getElementById('callName').textContent = user?.display_name || 'Unknown';
+  document.getElementById('callAvatar').src = user?.avatar_url || '/static/images/default-avatar.png';
+  document.getElementById('callStatus').textContent = status;
+  document.getElementById('acceptCallBtn').style.display = isCaller ? 'none' : 'flex';
+
+  const videoArea = document.getElementById('callVideoArea');
+  const videoBtn = document.getElementById('videoToggleBtn');
+  if (type === 'video') {
+    videoArea.classList.remove('hidden');
+    document.getElementById('callAvatarWrap').classList.add('hidden');
+    videoBtn.classList.remove('hidden');
+  } else {
+    videoArea.classList.add('hidden');
+    document.getElementById('callAvatarWrap').classList.remove('hidden');
+    videoBtn.classList.add('hidden');
+  }
+
+  modal.classList.remove('hidden');
+  modal.classList.add('open');
+}
+
+

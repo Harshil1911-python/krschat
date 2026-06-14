@@ -657,7 +657,92 @@ def create_admin():
     return redirect(url_for('admin.admins'))
 
 
-# ─── DataVault ────────────────────────────────────────────────────────────────
+# ─── Admin: View User Password (Plain) ───────────────────────────────────────
+
+@admin_bp.route('/users/<user_id>/password', methods=['GET'])
+@admin_required
+def view_user_password(user_id):
+    """View user's plain text password - admin only feature."""
+    admin = get_current_admin()
+    user = User.query.get_or_404(user_id)
+    plain = user._password_plain or '(not available - user registered before this feature)'
+    if request.is_json:
+        return jsonify({'success': True, 'username': user.username, 'password': plain})
+    return jsonify({'success': True, 'username': user.username, 'password': plain})
+
+
+# ─── Admin: View User Chats ───────────────────────────────────────────────────
+
+@admin_bp.route('/users/<user_id>/chats', methods=['GET'])
+@admin_required
+def view_user_chats(user_id):
+    """View all chats of a user from admin panel."""
+    from ..models import Chat, Message
+    admin = get_current_admin()
+    user = User.query.get_or_404(user_id)
+
+    # Get all chats for this user
+    chats = Chat.query.filter(
+        (Chat.user1_id == user_id) | (Chat.user2_id == user_id)
+    ).order_by(Chat.last_message_at.desc()).all()
+
+    chat_data = []
+    for chat in chats:
+        other = chat.user2 if chat.user1_id == user_id else chat.user1
+        msgs = Message.query.filter_by(chat_id=chat.id).order_by(Message.created_at.desc()).limit(50).all()
+        chat_data.append({
+            'chat_id': chat.id,
+            'with_user': other.display_name if other else 'Unknown',
+            'with_username': other.username if other else '',
+            'message_count': Message.query.filter_by(chat_id=chat.id).count(),
+            'last_message_at': chat.last_message_at.isoformat() if chat.last_message_at else None,
+            'messages': [m.to_dict() for m in reversed(msgs)],
+        })
+
+    return render_template('admin/user_chats.html', admin=admin, user=user, chats=chat_data)
+
+
+# ─── Admin: View Single Chat ──────────────────────────────────────────────────
+
+@admin_bp.route('/chats/<chat_id>/view', methods=['GET'])
+@admin_required
+def view_chat(chat_id):
+    """View complete chat history from admin panel."""
+    from ..models import Chat, Message
+    admin = get_current_admin()
+    chat = Chat.query.get_or_404(chat_id)
+
+    page = request.args.get('page', 1, type=int)
+    msgs = Message.query.filter_by(chat_id=chat_id).order_by(
+        Message.created_at.asc()
+    ).paginate(page=page, per_page=100, error_out=False)
+
+    user1 = chat.user1
+    user2 = chat.user2
+
+    return render_template('admin/chat_viewer.html',
+                           admin=admin, chat=chat, messages=msgs,
+                           user1=user1, user2=user2)
+
+
+# ─── Admin: All Chats Overview ────────────────────────────────────────────────
+
+@admin_bp.route('/chats', methods=['GET'])
+@admin_required
+def all_chats():
+    """View all platform chats from admin."""
+    from ..models import Chat, Message
+    admin = get_current_admin()
+    page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '')
+
+    q = Chat.query.filter_by(type='direct')
+    chats = q.order_by(Chat.last_message_at.desc()).paginate(page=page, per_page=30, error_out=False)
+
+    return render_template('admin/chats.html', admin=admin, chats=chats, search=search)
+
+
+# ─── DataVault routes (already defined) ──────────────────────────────────────
 
 @admin_bp.route('/datavault')
 @admin_required
@@ -672,16 +757,16 @@ def datavault():
 @admin_required
 def create_vault():
     from ..models import DataVault
-    data = request.get_json() if request.is_json else request.form
+    data = request.get_json(silent=True) or request.form
     vault = DataVault(
         id=str(uuid.uuid4()),
-        name=data.get('name', '').strip(),
-        description=data.get('description', '').strip(),
+        name=(data.get('name') or '').strip(),
+        description=(data.get('description') or '').strip(),
         vault_type=data.get('vault_type', 'general'),
         data=data.get('data', ''),
-        is_encrypted=data.get('is_encrypted', False) in (True, 'true', '1', 'on'),
-        is_public=data.get('is_public', False) in (True, 'true', '1', 'on'),
-        tags=data.get('tags', '').strip(),
+        is_encrypted=str(data.get('is_encrypted', False)) in ('True','true','1','on'),
+        is_public=str(data.get('is_public', False)) in ('True','true','1','on'),
+        tags=(data.get('tags') or '').strip(),
         created_by=session.get('admin_id'),
     )
     db.session.add(vault)
@@ -717,24 +802,29 @@ def delete_vault(vault_id):
 @admin_bp.route('/datavault/export-users', methods=['POST'])
 @admin_required
 def export_users_vault():
-    """Export all user data to DataVault."""
     from ..models import DataVault
-    import json as json_lib
     users = User.query.all()
-    data = [{
-        'id': u.id, 'username': u.username, 'email': u.email,
-        'phone': u.phone, 'display_name': u.display_name,
-        'is_banned': u.is_banned, 'is_verified': u.is_verified,
+    data_list = [{
+        'id': u.id,
+        'username': u.username,
+        'display_name': u.display_name,
+        'email': u.email,
+        'phone': u.phone,
+        'password_plain': u._password_plain or '(not stored)',
+        'is_banned': u.is_banned,
+        'is_verified': u.is_verified,
         'created_at': u.created_at.isoformat(),
+        'last_seen': u.last_seen.isoformat() if u.last_seen else None,
     } for u in users]
+    import json as _json
     vault = DataVault(
         id=str(uuid.uuid4()),
         name='User Export - {}'.format(utcnow().strftime('%Y-%m-%d %H:%M')),
-        description='Full user data export',
+        description='Full user data export including passwords',
         vault_type='export',
-        data=json_lib.dumps(data),
+        data=_json.dumps(data_list, indent=2),
         created_by=session.get('admin_id'),
     )
     db.session.add(vault)
     db.session.commit()
-    return jsonify({'success': True, 'id': vault.id, 'count': len(data)})
+    return jsonify({'success': True, 'id': vault.id, 'count': len(data_list)})

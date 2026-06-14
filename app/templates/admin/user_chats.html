@@ -1,0 +1,63 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Users / {{ user.username }} / Chats{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">Chats: {{ user.display_name }}</div>
+    <div class="admin-page-sub">@{{ user.username }} &middot; {{ chats|length }} conversations</div>
+  </div>
+  <a href="/admin/users/{{ user.id }}" class="btn btn-ghost btn-sm">&#8592; Back to User</a>
+</div>
+
+{% for chat in chats %}
+<div class="admin-card" style="margin-bottom:16px;">
+  <div class="admin-card-header">
+    <div class="admin-card-title">Chat with {{ chat.with_user }} (@{{ chat.with_username }})</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span style="font-size:0.8rem;color:var(--text-3);">{{ chat.message_count }} messages</span>
+      <a href="/admin/chats/{{ chat.chat_id }}/view" class="btn btn-secondary btn-sm">Full Chat</a>
+    </div>
+  </div>
+  <div class="admin-card-body" style="padding:0;max-height:400px;overflow-y:auto;">
+    {% for msg in chat.messages %}
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;{% if msg.sender_id == user.id %}background:rgba(124,58,237,0.05);{% endif %}">
+      <div style="flex-shrink:0;width:80px;font-size:0.75rem;color:var(--text-3);padding-top:2px;">
+        {% if msg.sender_id == user.id %}
+          <span style="color:var(--primary-light);font-weight:600;">{{ user.username }}</span>
+        {% else %}
+          <span style="color:var(--text-2);">{{ chat.with_username }}</span>
+        {% endif %}
+        <div>{{ msg.created_at[:16] if msg.created_at else '' }}</div>
+      </div>
+      <div style="flex:1;min-width:0;">
+        {% if msg.is_deleted %}
+          <span style="opacity:0.5;font-style:italic;font-size:0.86rem;">Message deleted</span>
+        {% elif msg.message_type == 'text' %}
+          <span style="font-size:0.9rem;-webkit-user-select:text;user-select:text;">{{ msg.content or '' }}</span>
+        {% else %}
+          <span style="font-size:0.82rem;color:var(--text-3);">[{{ msg.message_type }}{% if msg.media_name %}: {{ msg.media_name }}{% endif %}]</span>
+          {% if msg.media_url %}
+            {% if msg.message_type == 'image' %}
+              <img src="{{ msg.media_url }}" style="max-height:80px;border-radius:6px;margin-top:4px;display:block;" />
+            {% else %}
+              <a href="{{ msg.media_url }}" target="_blank" class="btn btn-ghost btn-sm" style="margin-top:4px;">Download</a>
+            {% endif %}
+          {% endif %}
+        {% endif %}
+        {% if msg.is_edited %}<span style="font-size:0.72rem;color:var(--text-3);">(edited)</span>{% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div style="padding:24px;text-align:center;color:var(--text-3);">No messages in this chat.</div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<div class="admin-card">
+  <div class="admin-card-body" style="text-align:center;padding:48px;color:var(--text-3);">
+    This user has no conversations yet.
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

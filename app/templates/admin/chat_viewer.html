@@ -1,0 +1,186 @@
+{% extends "admin/base_admin.html" %}
+{% block breadcrumb %}Chats / View{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="admin-page-title">Chat Viewer</div>
+    <div class="admin-page-sub">
+      Between {{ user1.display_name if user1 else 'Unknown' }} and {{ user2.display_name if user2 else 'Unknown' }}
+      &middot; {{ messages.total }} messages
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn btn-secondary btn-sm" onclick="exportChat()">Export as TXT</button>
+    <a href="/admin/chats" class="btn btn-ghost btn-sm">&#8592; All Chats</a>
+  </div>
+</div>
+
+<div class="admin-card">
+  <!-- Chat participants header -->
+  <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;gap:20px;background:var(--surface-2);">
+    {% for u in [user1, user2] %}
+    {% if u %}
+    <div style="display:flex;align-items:center;gap:10px;">
+      <img src="{{ u.avatar_url or '/static/images/default-avatar.png' }}" class="avatar avatar-sm" onerror="this.src='/static/images/default-avatar.png'" />
+      <div>
+        <div style="font-weight:600;font-size:0.9rem;">{{ u.display_name }}</div>
+        <div style="font-size:0.76rem;color:var(--text-3);">@{{ u.username }}</div>
+      </div>
+      <a href="/admin/users/{{ u.id }}" class="btn btn-ghost btn-sm">View Profile</a>
+      <a href="/admin/users/{{ u.id }}/password" class="btn btn-secondary btn-sm" onclick="viewPassword(event, '{{ u.id }}', '{{ u.username }}')">View Password</a>
+    </div>
+    {% if not loop.last %}<div style="width:1px;background:var(--border);"></div>{% endif %}
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- Messages -->
+  <div id="chatBody" style="max-height:600px;overflow-y:auto;padding:0;">
+    {% set last_date = namespace(val='') %}
+    {% for msg in messages.items %}
+    {% set msg_date = msg.created_at.strftime('%Y-%m-%d') if msg.created_at else '' %}
+    {% if msg_date != last_date.val %}
+    {% set last_date.val = msg_date %}
+    <div style="text-align:center;padding:8px;font-size:0.76rem;color:var(--text-3);">
+      <span style="background:var(--surface-2);padding:3px 10px;border-radius:10px;border:1px solid var(--border);">
+        {{ msg.created_at.strftime('%B %d, %Y') if msg.created_at else '' }}
+      </span>
+    </div>
+    {% endif %}
+
+    <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;
+      {% if user1 and msg.sender_id == user1.id %}background:rgba(124,58,237,0.04);{% endif %}">
+      <!-- Sender info -->
+      <div style="flex-shrink:0;width:110px;">
+        {% if user1 and msg.sender_id == user1.id %}
+          <div style="font-size:0.78rem;font-weight:600;color:var(--primary-light);">{{ user1.username }}</div>
+        {% elif user2 and msg.sender_id == user2.id %}
+          <div style="font-size:0.78rem;font-weight:600;color:var(--accent);">{{ user2.username }}</div>
+        {% else %}
+          <div style="font-size:0.78rem;color:var(--text-3);">Unknown</div>
+        {% endif %}
+        <div style="font-size:0.72rem;color:var(--text-3);">
+          {{ msg.created_at.strftime('%H:%M:%S') if msg.created_at else '' }}
+        </div>
+        {% if msg.is_edited %}<div style="font-size:0.7rem;color:var(--warning);">edited</div>{% endif %}
+        {% if msg.is_deleted %}<div style="font-size:0.7rem;color:var(--danger);">deleted</div>{% endif %}
+      </div>
+
+      <!-- Message content -->
+      <div style="flex:1;min-width:0;">
+        {% if msg.is_deleted %}
+          <em style="opacity:0.5;font-size:0.86rem;">This message was deleted</em>
+        {% elif msg.message_type == 'text' %}
+          <div style="font-size:0.9rem;white-space:pre-wrap;word-break:break-word;-webkit-user-select:text;user-select:text;">{{ msg.content or '' }}</div>
+        {% elif msg.message_type == 'image' %}
+          <div>
+            <span class="badge badge-primary" style="margin-bottom:6px;">Image</span>
+            {% if msg.media_url %}
+            <img src="{{ msg.media_url }}" style="max-width:200px;max-height:150px;border-radius:8px;display:block;cursor:pointer;" onclick="window.open('{{ msg.media_url }}','_blank')" />
+            {% endif %}
+          </div>
+        {% elif msg.message_type in ['audio','voice'] %}
+          <div>
+            <span class="badge badge-primary" style="margin-bottom:6px;">{{ msg.message_type | capitalize }}</span>
+            {% if msg.media_url %}
+            <audio src="{{ msg.media_url }}" controls style="max-width:260px;display:block;margin-top:4px;"></audio>
+            {% endif %}
+          </div>
+        {% elif msg.message_type == 'video' %}
+          <div>
+            <span class="badge badge-primary" style="margin-bottom:6px;">Video</span>
+            {% if msg.media_url %}
+            <video src="{{ msg.media_url }}" controls style="max-width:260px;border-radius:8px;display:block;margin-top:4px;"></video>
+            {% endif %}
+          </div>
+        {% else %}
+          <div>
+            <span class="badge badge-primary" style="margin-bottom:6px;">{{ msg.message_type | capitalize }}</span>
+            {% if msg.media_name %}<div style="font-size:0.84rem;">{{ msg.media_name }}</div>{% endif %}
+            {% if msg.media_url %}<a href="{{ msg.media_url }}" target="_blank" class="btn btn-ghost btn-sm" style="margin-top:4px;">Download</a>{% endif %}
+          </div>
+        {% endif %}
+
+        {% if msg.reactions %}
+        <div style="margin-top:4px;font-size:0.8rem;color:var(--text-3);">Reactions: {{ msg.reactions }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--text-3);">No messages in this chat.</div>
+    {% endfor %}
+  </div>
+
+  <!-- Pagination -->
+  {% if messages.pages > 1 %}
+  <div style="padding:14px;border-top:1px solid var(--border);">
+    <div class="pagination">
+      {% if messages.has_prev %}
+      <a href="?page={{ messages.prev_num }}" class="page-btn">&#8592;</a>
+      {% endif %}
+      <span style="font-size:0.84rem;color:var(--text-3);padding:0 10px;">
+        Page {{ messages.page }} of {{ messages.pages }}
+      </span>
+      {% if messages.has_next %}
+      <a href="?page={{ messages.next_num }}" class="page-btn">&#8594;</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Password Viewer Modal -->
+<div class="modal-overlay" id="passwordModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h3 class="modal-title">User Password</h3>
+      <button class="modal-close" onclick="document.getElementById('passwordModal').classList.remove('open')">&#x2715;</button>
+    </div>
+    <div style="padding:4px 0;">
+      <div class="form-label">Username</div>
+      <div id="pwUsername" style="font-size:1rem;font-weight:600;margin-bottom:14px;-webkit-user-select:text;user-select:text;"></div>
+      <div class="form-label">Plain Text Password</div>
+      <div id="pwPlain" style="font-family:monospace;font-size:1.1rem;padding:10px 14px;background:var(--surface-3);border-radius:var(--radius);border:1px solid var(--border);-webkit-user-select:text;user-select:text;word-break:break-all;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('passwordModal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function viewPassword(e, userId, username) {
+  e.preventDefault();
+  const res = await fetch('/admin/users/' + userId + '/password');
+  const data = await res.json();
+  document.getElementById('pwUsername').textContent = '@' + username;
+  document.getElementById('pwPlain').textContent = data.password;
+  document.getElementById('passwordModal').classList.add('open');
+}
+
+function exportChat() {
+  const rows = document.querySelectorAll('#chatBody [style*="padding:10px 16px"]');
+  let text = 'Chat Export\n' + '='.repeat(50) + '\n\n';
+  rows.forEach(row => {
+    const sender = row.querySelector('[style*="font-weight:600"]');
+    const time = row.querySelector('[style*="font-size:0.72rem"]');
+    const content = row.querySelector('[style*="pre-wrap"]') || row.querySelector('em');
+    if (sender && content) {
+      text += '[' + (time?.textContent?.trim() || '') + '] ' +
+              (sender.textContent?.trim() || '') + ': ' +
+              (content.textContent?.trim() || '') + '\n';
+    }
+  });
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+  a.download = 'chat_export.txt';
+  a.click();
+}
+
+// Scroll to bottom on load
+document.getElementById('chatBody').scrollTop = document.getElementById('chatBody').scrollHeight;
+</script>
+{% endblock %}

@@ -336,4 +336,42 @@ def register_socket_events(socketio):
                 'call_id': data.get('call_id', str(uuid.uuid4()))
             }, room=f'user_{target_user_id}')
 
+    @socketio.on('video_call_answer')
+    def on_video_call_answer(data):
+        """Forward video call answer to caller."""
+        if not current_user.is_authenticated:
+            return
+        caller_id = data.get('caller_id')
+        answer = data.get('answer')
+        if caller_id and answer:
+            emit('video_call_answered', {
+                'answer': answer,
+                'answered_by': current_user.id,
+                'call_id': data.get('call_id')
+            }, room=f'user_{caller_id}')
+
+    @socketio.on('video_call_reject')
+    def on_video_call_reject(data):
+        """Forward video call rejection."""
+        if not current_user.is_authenticated:
+            return
+        caller_id = data.get('caller_id')
+        if caller_id:
+            emit('video_call_rejected', {
+                'rejected_by': current_user.id,
+                'call_id': data.get('call_id')
+            }, room=f'user_{caller_id}')
+
+    @socketio.on('call_end')
+    def on_call_end(data):
+        """Notify other party the call has ended."""
+        if not current_user.is_authenticated:
+            return
+        target_id = data.get('target_id')
+        if target_id:
+            emit('call_ended', {
+                'ended_by': current_user.id,
+                'call_id': data.get('call_id')
+            }, room=f'user_{target_id}')
+
     return socketio
